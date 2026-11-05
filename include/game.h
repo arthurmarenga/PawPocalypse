@@ -17,6 +17,7 @@ typedef enum EstadoJogo {
     ESTADO_INSTRUCOES,  // como jogar
     ESTADO_JOGANDO,     // partida em andamento
     ESTADO_PAUSA,       // partida pausada
+    ESTADO_FIM_PARTIDA, // partida terminou (um gato chegou à casa)
     ESTADO_SAIR         // fecha o jogo
 } EstadoJogo;
 

@@ -5,8 +5,10 @@
  * quando a fase começa e liberada quando o jogador sai dela. */
 
 #include "raylib.h"
+#include "enemy.h"
 #include "map.h"
 #include "petisco.h"
+#include "projetil.h"
 #include "tower.h"
 #include <stdbool.h>
 
@@ -23,6 +25,8 @@ typedef struct Partida {
     int      fase;               // 1 a 5, ou FASE_TUTORIAL
     Mapa     mapa;               // matriz 4x8 com os cachorros
     Petisco *petiscos;           // lista encadeada dos petiscos na tela
+    Gato    *gatos;              // lista encadeada dos gatos zumbis
+    Projetil *latidos;           // lista encadeada dos latidos disparados
     int      saldo;              // petiscos disponíveis para gastar
     Carta    cartas[MAX_CARTAS]; // [0] é sempre o Pote de Ração
     int      totalCartas;
@@ -30,14 +34,17 @@ typedef struct Partida {
     bool     paSelecionada;
     float    tempoJogado;        // segundos de partida
     float    timerPetiscoCeu;    // segundos até o próximo petisco do céu
+    float    timerGato;          // segundos até o próximo gato (gerador provisório)
+    int      gatosDerrotados;
+    bool     perdeu;             // true quando um gato chega à casa
     int      passoTutorial;      // instrução atual do tutorial
     const char *aviso;           // mensagem temporária ("Petiscos insuficientes!")
     float    timerAviso;         // segundos restantes do aviso
 } Partida;
 
 Partida *partida_criar(int fase);                                   // aloca a partida (NULL se faltar memória)
-void partida_atualizar(Partida *partida, Vector2 mouse, float dt);  // entrada do jogador, petiscos e recargas
-void partida_desenhar(const Partida *partida, Vector2 mouse);       // campo, barra superior e petiscos
+void partida_atualizar(Partida *partida, Vector2 mouse, float dt);  // entrada do jogador, petiscos, gatos, latidos e recargas
+void partida_desenhar(const Partida *partida, Vector2 mouse);       // campo, gatos, barra superior e petiscos
 void partida_destruir(Partida *partida);                            // libera a partida e tudo o que ela alocou
 bool partida_eh_tutorial(const Partida *partida);                   // true se for o tutorial
 

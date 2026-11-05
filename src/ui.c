@@ -72,3 +72,13 @@ void ui_desenhar_osso(Vector2 centro, float escala, Color cor)
         }
     }
 }
+
+/* ui_barra_vida: desenha uma barra de vida centrada em 'centro': fundo escuro
+ * e preenchimento proporcional a 'fracao' (0 = vazia, 1 = cheia), que vai do
+ * verde (cheia) ao vermelho (quase vazia). */
+void ui_barra_vida(Vector2 centro, float largura, float fracao)
+{
+    if (fracao < 0.0f) fracao = 0.0f;
+    DrawRectangle(centro.x - largura / 2 - 1, centro.y - 1, largura + 2, 5, COR_SOMBRA);
+    DrawRectangle(centro.x - largura / 2, centro.y, largura * fracao, 3, ColorLerp(COR_ALERTA, COR_INFECTADO, fracao));
+}

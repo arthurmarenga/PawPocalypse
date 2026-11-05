@@ -8,8 +8,11 @@
 #include <stdlib.h>
 
 #define TAMANHO(v)      ((int)(sizeof(v) / sizeof((v)[0])))
-#define INTERVALO_CEU   8.0f   // segundos mínimos entre petiscos do céu
-#define DURACAO_AVISO   1.6f
+#define INTERVALO_CEU    8.0f   // segundos mínimos entre petiscos do céu
+#define DURACAO_AVISO    1.6f
+#define PRIMEIRO_GATO   20.0f   // segundos até o primeiro gato aparecer
+#define CADENCIA_BEAGLE  1.4f   // segundos entre latidos do Beagle
+#define DANO_LATIDO     20
 
 static const Rectangle RET_CONTADOR = { 8, 8, 56, 52 };
 static const Rectangle RET_PA = { 380, 8, 46, 52 };
@@ -26,7 +29,7 @@ static const char *textosTutorial[] = {
     "Compre um Pote de Ração: clique na carta e depois no campo.",
     "O pote gera petiscos sozinho! Agora coloque um Beagle.",
     "Use a pá (ou tecla S) para remover um cachorro do campo.",
-    "Muito bem! Os gatos zumbis chegam na Etapa 3. ESC para sair.",
+    "Muito bem! Nas fases, os gatos zumbis vão atacar. ESC para sair.",
 };
 
 /* retangulo_carta: área da carta de índice i na barra superior. */
@@ -50,9 +53,9 @@ static void avancar_tutorial(Partida *partida, int passoCumprido)
 }
 
 /* partida_criar: aloca a partida com malloc, zera tudo e prepara o campo
- * vazio, a lista de petiscos vazia, o saldo inicial e o deck (fixo por
- * enquanto: um para o tutorial e outro para as fases). Retorna NULL se
- * faltar memória. */
+ * vazio, as listas vazias (petiscos, gatos e latidos), o saldo inicial e o
+ * deck (fixo por enquanto: um para o tutorial e outro para as fases).
+ * Retorna NULL se faltar memória. */
 Partida *partida_criar(int fase)
 {
     Partida *partida = malloc(sizeof(Partida));
@@ -61,10 +64,13 @@ Partida *partida_criar(int fase)
     *partida = (Partida){ 0 };
     mapa_iniciar(&partida->mapa);
     partida->petiscos = NULL;
+    partida->gatos = NULL;
+    partida->latidos = NULL;
     partida->fase = fase;
     partida->saldo = PETISCOS_INICIAIS;
     partida->cartaSelecionada = -1;
     partida->timerPetiscoCeu = (fase == FASE_TUTORIAL) ? 1.0f : 5.0f;
+    partida->timerGato = PRIMEIRO_GATO;
 
     const TipoCachorro *deck = (fase == FASE_TUTORIAL) ? deckTutorial : deckProvisorio;
     partida->totalCartas = (fase == FASE_TUTORIAL) ? TAMANHO(deckTutorial) : TAMANHO(deckProvisorio);
@@ -72,13 +78,15 @@ Partida *partida_criar(int fase)
     return partida;
 }
 
-/* partida_destruir: libera os cachorros do campo, a lista de petiscos e a
- * própria partida. */
+/* partida_destruir: libera os cachorros do campo, as listas de petiscos,
+ * gatos e latidos e a própria partida. */
 void partida_destruir(Partida *partida)
 {
     if (partida == NULL) return;
     mapa_limpar(&partida->mapa);
     petisco_liberar_lista(&partida->petiscos);
+    gato_liberar_lista(&partida->gatos);
+    projetil_liberar_lista(&partida->latidos);
     free(partida);
 }
 
@@ -88,29 +96,58 @@ bool partida_eh_tutorial(const Partida *partida)
     return partida->fase == FASE_TUTORIAL;
 }
 
-/* gerar_petiscos: de tempos em tempos solta um petisco do céu num ponto
- * aleatório do campo, e faz cada Pote de Ração da matriz soltar o seu a
- * cada POTE_INTERVALO_PRODUCAO segundos. */
-static void gerar_petiscos(Partida *partida, float dt)
+/* soltar_petisco_do_ceu: de tempos em tempos (8 a 12 s) solta um petisco do
+ * céu, que cai num ponto aleatório do campo. */
+static void soltar_petisco_do_ceu(Partida *partida, float dt)
 {
     partida->timerPetiscoCeu -= dt;
-    if (partida->timerPetiscoCeu <= 0.0f) {
-        float x = MAPA_X + 24 + rand() % (COLUNAS_MAPA * TAMANHO_CELULA - 48);
-        float alvo = MAPA_Y + 24 + rand() % (LINHAS_MAPA * TAMANHO_CELULA - 40);
-        petisco_adicionar(&partida->petiscos, (Vector2){ x, -10 }, alvo);
-        partida->timerPetiscoCeu = INTERVALO_CEU + rand() % 5;
-    }
+    if (partida->timerPetiscoCeu > 0.0f) return;
 
+    float x = MAPA_X + 24 + rand() % (COLUNAS_MAPA * TAMANHO_CELULA - 48);
+    float alvo = MAPA_Y + 24 + rand() % (LINHAS_MAPA * TAMANHO_CELULA - 40);
+    petisco_adicionar(&partida->petiscos, (Vector2){ x, -10 }, alvo);
+    partida->timerPetiscoCeu = INTERVALO_CEU + rand() % 5;
+}
+
+/* gerar_gatos: gerador PROVISÓRIO de gatos (as hordas entram na Etapa 5).
+ * Fora do tutorial, solta um gato numa linha aleatória a cada 8 a 13 s,
+ * começando após PRIMEIRO_GATO segundos. Depois de 1 minuto podem vir gatos
+ * de cone e, depois de 2 minutos, gatos de balde. */
+static void gerar_gatos(Partida *partida, float dt)
+{
+    if (partida_eh_tutorial(partida)) return;
+    partida->timerGato -= dt;
+    if (partida->timerGato > 0.0f) return;
+
+    int sorte = rand() % 100;
+    TipoGato tipo = GATO_COMUM;
+    if (partida->tempoJogado > 60.0f && sorte < 30)  tipo = GATO_CONE;
+    if (partida->tempoJogado > 120.0f && sorte < 12) tipo = GATO_BALDE;
+    gato_adicionar(&partida->gatos, tipo, rand() % LINHAS_MAPA);
+    partida->timerGato = 8.0f + rand() % 6;
+}
+
+/* atualizar_cachorros: percorre a matriz do campo e executa a ação de cada
+ * defensor quando o timer dele zera: o Pote de Ração solta um petisco a
+ * cada POTE_INTERVALO_PRODUCAO segundos e o Beagle late a cada
+ * CADENCIA_BEAGLE segundos se houver um gato visível à sua direita, na
+ * mesma linha. As outras raças ganham suas habilidades na Etapa 4. */
+static void atualizar_cachorros(Partida *partida, float dt)
+{
     for (int l = 0; l < LINHAS_MAPA; l++) {
         for (int c = 0; c < COLUNAS_MAPA; c++) {
-            Cachorro *pote = partida->mapa.grade[l][c];
-            if (pote == NULL || pote->tipo != TIPO_POTE_RACAO) continue;
+            Cachorro *cao = partida->mapa.grade[l][c];
+            if (cao == NULL) continue;
+            if (cao->timer > 0.0f) cao->timer -= dt;
+            if (cao->timer > 0.0f) continue;
 
-            pote->timer -= dt;
-            if (pote->timer <= 0.0f) {
-                Vector2 centro = mapa_centro_celula(l, c);
+            Vector2 centro = mapa_centro_celula(l, c);
+            if (cao->tipo == TIPO_POTE_RACAO) {
                 petisco_adicionar(&partida->petiscos, (Vector2){ centro.x + rand() % 21 - 10, centro.y - 12 }, centro.y + 18);
-                pote->timer = POTE_INTERVALO_PRODUCAO;
+                cao->timer = POTE_INTERVALO_PRODUCAO;
+            } else if (cao->tipo == TIPO_BEAGLE && gato_na_linha(partida->gatos, l, centro.x, LARGURA_VIRTUAL) != NULL) {
+                projetil_adicionar(&partida->latidos, l, centro.x + 16, DANO_LATIDO);
+                cao->timer = CADENCIA_BEAGLE;
             }
         }
     }
@@ -200,17 +237,25 @@ static void tratar_entrada(Partida *partida, Vector2 mouse)
     }
 }
 
-/* partida_atualizar: avança o tempo da partida, o aviso e a recarga das
- * cartas, gera e move os petiscos e trata a entrada do jogador. */
+/* partida_atualizar: se a partida ainda não foi perdida, avança o tempo, o
+ * aviso e a recarga das cartas; gera petiscos e gatos; faz os cachorros
+ * agirem; move os latidos e os gatos (contando os derrotados e marcando
+ * 'perdeu' se algum chegar à casa); move os petiscos e trata a entrada. */
 void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
 {
+    if (partida->perdeu) return;
+
     partida->tempoJogado += dt;
     if (partida->timerAviso > 0.0f) partida->timerAviso -= dt;
     for (int i = 0; i < partida->totalCartas; i++) {
         if (partida->cartas[i].recarga > 0.0f) partida->cartas[i].recarga -= dt;
     }
 
-    gerar_petiscos(partida, dt);
+    soltar_petisco_do_ceu(partida, dt);
+    gerar_gatos(partida, dt);
+    atualizar_cachorros(partida, dt);
+    projetil_atualizar_lista(&partida->latidos, partida->gatos, dt);
+    partida->gatosDerrotados += gato_atualizar_lista(&partida->gatos, &partida->mapa, dt, &partida->perdeu);
     petisco_atualizar_lista(&partida->petiscos, dt);
     tratar_entrada(partida, mouse);
 }
@@ -253,7 +298,7 @@ static void desenhar_hud(const Partida *partida, Vector2 mouse)
 
     int s = (int)partida->tempoJogado;
     ui_texto(partida_eh_tutorial(partida) ? "TUTORIAL" : TextFormat("FASE %d", partida->fase), 440, 12, FONTE_MEDIA, COR_INFECTADO);
-    ui_texto(TextFormat("Tempo: %02d:%02d", s / 60, s % 60), 440, 36, FONTE_PEQUENA, COR_TEXTO);
+    ui_texto(TextFormat("Tempo: %02d:%02d   Gatos: %d", s / 60, s % 60, partida->gatosDerrotados), 440, 36, FONTE_PEQUENA, COR_TEXTO);
 
     const char *dica = "ESC: pausa";
     for (int i = 0; i < partida->totalCartas; i++) {
@@ -312,14 +357,17 @@ static void desenhar_mensagem(const Partida *partida)
 }
 
 /* partida_desenhar: desenha, de trás para a frente, o céu e os prédios atrás
- * da barra, o campo com os cachorros, a prévia sob o mouse, a barra
- * superior, a faixa de mensagens e os petiscos (por cima de tudo). */
+ * da barra, o campo com os cachorros, a prévia sob o mouse, os gatos, os
+ * latidos, a barra superior, a faixa de mensagens e os petiscos (por cima
+ * de tudo). */
 void partida_desenhar(const Partida *partida, Vector2 mouse)
 {
     cenario_desenhar_ceu(MAPA_Y, partida->tempoJogado);
     cenario_desenhar_skyline_distante(MAPA_Y);
     mapa_desenhar(&partida->mapa);
     desenhar_previa(partida, mouse);
+    gato_desenhar_lista(partida->gatos, partida->tempoJogado);
+    projetil_desenhar_lista(partida->latidos);
     desenhar_hud(partida, mouse);
     desenhar_mensagem(partida);
     petisco_desenhar_lista(partida->petiscos, partida->tempoJogado);
