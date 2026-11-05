@@ -23,6 +23,7 @@ static const Botao botoesMenu[TOTAL_BOTOES_MENU] = {
 static const Botao botaoVoltar = { { 240, 312, 160, 30 }, "Voltar" };
 static const Botao botaoContinuar = { { 220, 160, 200, 30 }, "Continuar" };
 static const Botao botaoSairPartida = { { 220, 200, 200, 30 }, "Sair da Partida" };
+static const Botao botaoTentarDeNovo = { { 220, 160, 200, 30 }, "Tentar de novo" };
 
 /* area_da_tela: calcula onde a tela virtual aparece dentro da janela. Usa
  * escala inteira (2x, 3x...) para todos os pixels terem o mesmo tamanho;
@@ -279,23 +280,52 @@ static void desenhar_instrucoes(const Jogo *jogo)
 
 /* atualizar_jogando: ESC/P pausa; F9 vence a fase na hora (atalho de teste
  * até as hordas existirem); senão atualiza a partida, com o tempo do frame
- * limitado a 0,1 s para evitar "saltos" se o jogo travar um instante. */
+ * limitado a 0,1 s para evitar "saltos" se o jogo travar um instante. Se um
+ * gato chegou à casa, vai para a tela de fim de partida. */
 static void atualizar_jogando(Jogo *jogo)
 {
-    if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) jogo->estado = ESTADO_PAUSA;
-    else if (IsKeyPressed(KEY_F9) && !partida_eh_tutorial(jogo->partida)) encerrar_partida(jogo, true);
-    else partida_atualizar(jogo->partida, jogo->mouse, fminf(GetFrameTime(), 0.1f));
+    if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) {
+        jogo->estado = ESTADO_PAUSA;
+    } else if (IsKeyPressed(KEY_F9) && !partida_eh_tutorial(jogo->partida)) {
+        encerrar_partida(jogo, true);
+    } else {
+        partida_atualizar(jogo->partida, jogo->mouse, fminf(GetFrameTime(), 0.1f));
+        if (jogo->partida->perdeu) jogo->estado = ESTADO_FIM_PARTIDA;
+    }
 }
 
-/* desenhar_pausa: a partida congelada ao fundo, escurecida, com os botões
- * Continuar e Sair da Partida por cima. */
-static void desenhar_pausa(const Jogo *jogo)
+/* atualizar_fim_partida: "Tentar de novo" encerra a partida (guardando o
+ * tempo no save) e começa outra da mesma fase; "Sair da Partida" só encerra. */
+static void atualizar_fim_partida(Jogo *jogo)
+{
+    int fase = jogo->partida->fase;
+    if (ui_botao_clicado(&botaoTentarDeNovo, jogo->mouse)) {
+        encerrar_partida(jogo, false);
+        iniciar_partida(jogo, fase);
+    } else if (ui_botao_clicado(&botaoSairPartida, jogo->mouse)) {
+        encerrar_partida(jogo, false);
+    }
+}
+
+/* desenhar_janela_partida: desenha a partida congelada e escurecida ao fundo,
+ * com um título e dois botões por cima. Usada na pausa e no fim da partida. */
+static void desenhar_janela_partida(const Jogo *jogo, const char *titulo, Color cor, const Botao *b1, const Botao *b2)
 {
     partida_desenhar(jogo->partida, (Vector2){ -100, -100 });
-    DrawRectangle(0, 0, LARGURA_VIRTUAL, ALTURA_VIRTUAL, Fade(BLACK, 0.6f));
-    ui_texto_centro("PAUSADO", LARGURA_VIRTUAL / 2, 100, FONTE_GRANDE, COR_TEXTO);
-    ui_desenhar_botao(&botaoContinuar, jogo->mouse);
-    ui_desenhar_botao(&botaoSairPartida, jogo->mouse);
+    DrawRectangle(0, 0, LARGURA_VIRTUAL, ALTURA_VIRTUAL, Fade(BLACK, 0.65f));
+    ui_texto_centro(titulo, LARGURA_VIRTUAL / 2, 90, FONTE_GRANDE, cor);
+    ui_desenhar_botao(b1, jogo->mouse);
+    ui_desenhar_botao(b2, jogo->mouse);
+}
+
+/* desenhar_fim_partida: janela de derrota com o tempo da partida e quantos
+ * gatos foram derrotados. */
+static void desenhar_fim_partida(const Jogo *jogo)
+{
+    const Partida *p = jogo->partida;
+    desenhar_janela_partida(jogo, "A CASA FOI INVADIDA!", COR_ALERTA, &botaoTentarDeNovo, &botaoSairPartida);
+    ui_texto_centro(TextFormat("Tempo: %s    Gatos derrotados: %d", texto_tempo(p->tempoJogado), p->gatosDerrotados),
+                    LARGURA_VIRTUAL / 2, 136, FONTE_PEQUENA, COR_TEXTO);
 }
 
 /* jogo_criar: aloca o jogo com malloc, cria a tela virtual com filtro POINT
@@ -345,6 +375,9 @@ void jogo_atualizar(Jogo *jogo)
             if (ui_botao_clicado(&botaoContinuar, jogo->mouse) || IsKeyPressed(KEY_ESCAPE)) jogo->estado = ESTADO_JOGANDO;
             else if (ui_botao_clicado(&botaoSairPartida, jogo->mouse)) encerrar_partida(jogo, false);
             break;
+        case ESTADO_FIM_PARTIDA:
+            atualizar_fim_partida(jogo);
+            break;
         case ESTADO_SAIR:
             break;
     }
@@ -363,7 +396,10 @@ void jogo_desenhar(const Jogo *jogo)
         case ESTADO_FASES:      desenhar_fases(jogo);                         break;
         case ESTADO_INSTRUCOES: desenhar_instrucoes(jogo);                    break;
         case ESTADO_JOGANDO:    partida_desenhar(jogo->partida, jogo->mouse); break;
-        case ESTADO_PAUSA:      desenhar_pausa(jogo);                         break;
+        case ESTADO_PAUSA:
+            desenhar_janela_partida(jogo, "PAUSADO", COR_TEXTO, &botaoContinuar, &botaoSairPartida);
+            break;
+        case ESTADO_FIM_PARTIDA: desenhar_fim_partida(jogo);                  break;
         case ESTADO_SAIR:                                                     break;
     }
     EndTextureMode();
