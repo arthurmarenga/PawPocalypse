@@ -1,31 +1,28 @@
-/* projetil.c - Lista encadeada de latidos. */
+/* projetil.c - Lista encadeada das bolinhas de tênis em voo. */
 
 #include "projetil.h"
 #include "config.h"
-#include "ui.h"
 
 #include <stdlib.h>
 
-#define RAIO_ACERTO 12.0f
-
-/* projetil_adicionar: aloca um latido com malloc na linha e posição dadas e
- * o insere no INÍCIO da lista. Retorna false se faltar memória. */
-bool projetil_adicionar(Projetil **lista, int linha, float x, int dano)
+/* projetil_adicionar: aloca uma bolinha com malloc na posição de disparo e a
+ * insere no INÍCIO da lista. Retorna false se faltar memória. */
+bool projetil_adicionar(Projetil **lista, Vector2 posicao, int linha, int dano, bool gelada)
 {
     Projetil *novo = malloc(sizeof(Projetil));
     if (novo == NULL) return false;
 
+    novo->posicao = posicao;
     novo->linha = linha;
-    novo->x = x;
     novo->dano = dano;
+    novo->gelada = gelada;
     novo->proximo = *lista;
     *lista = novo;
     return true;
 }
 
-/* remover_no: tira da lista o nó apontado por 'ligacao' (a cabeça da lista
- * ou o campo 'proximo' do nó anterior), religando a lista ao nó seguinte, e
- * libera a memória dele. */
+/* remover_no: tira da lista o nó apontado por 'ligacao' (a cabeça ou o campo
+ * 'proximo' do nó anterior), religa a lista ao nó seguinte e libera o nó. */
 static void remover_no(Projetil **ligacao)
 {
     Projetil *removido = *ligacao;
@@ -33,37 +30,37 @@ static void remover_no(Projetil **ligacao)
     free(removido);
 }
 
-/* projetil_atualizar_lista: move cada latido para a direita. Se ele encostar
- * num gato da mesma linha, tira 'dano' da vida do gato e é removido; também
- * é removido ao sair da tela. */
+/* projetil_atualizar_lista: move cada bolinha para a direita; se ela tocar
+ * um gato da sua linha, causa o dano nele (e, se for gelada, o deixa lento).
+ * Remove da lista as que acertaram e as que saíram da tela. */
 void projetil_atualizar_lista(Projetil **lista, Gato *gatos, float dt)
 {
     Projetil **ligacao = lista;
     while (*ligacao != NULL) {
         Projetil *p = *ligacao;
-        p->x += VELOCIDADE_LATIDO * dt;
+        p->posicao.x += VELOCIDADE_PROJETIL * dt;
 
-        Gato *alvo = gato_na_linha(gatos, p->linha, p->x - RAIO_ACERTO, p->x + RAIO_ACERTO);
-        if (alvo != NULL) alvo->vida -= p->dano;
+        Gato *alvo = gato_atingido(gatos, p->linha, p->posicao.x);
+        if (alvo != NULL) gato_ferir(alvo, p->dano);
+        if (alvo != NULL && p->gelada) gato_gelar(alvo);
 
-        if (alvo != NULL || p->x > LARGURA_VIRTUAL) remover_no(ligacao);
-        else                                        ligacao = &p->proximo;
+        if (alvo != NULL || p->posicao.x > LARGURA_VIRTUAL) remover_no(ligacao);
+        else                                                ligacao = &p->proximo;
     }
 }
 
-/* projetil_desenhar_lista: desenha cada latido como dois arcos laranja,
- * parecendo uma onda de som indo para a direita. */
+/* projetil_desenhar_lista: desenha cada bolinha de tênis (amarelo-esverdeada,
+ * ou azul-clara se for gelada) com contorno escuro. */
 void projetil_desenhar_lista(const Projetil *lista)
 {
     for (const Projetil *p = lista; p != NULL; p = p->proximo) {
-        Vector2 centro = { p->x, mapa_centro_celula(p->linha, 0).y - 4 };
-        DrawRing(centro, 4, 7, -55, 55, 10, COR_PETISCO);
-        DrawRing(centro, 10, 13, -55, 55, 10, Fade(COR_PETISCO, 0.6f));
+        DrawCircleV(p->posicao, 4, p->gelada ? (Color){ 170, 220, 255, 255 } : (Color){ 210, 232, 60, 255 });
+        DrawCircleLinesV(p->posicao, 4, p->gelada ? (Color){ 40, 90, 140, 255 } : (Color){ 90, 104, 20, 255 });
     }
 }
 
-/* projetil_liberar_lista: remove a cabeça da lista até ela ficar vazia
- * (NULL), liberando todos os nós. */
+/* projetil_liberar_lista: remove a cabeça da lista até ela ficar vazia (NULL),
+ * liberando todos os nós. */
 void projetil_liberar_lista(Projetil **lista)
 {
     while (*lista != NULL) remover_no(lista);
