@@ -87,8 +87,9 @@ static void mover_ou_morder(Gato *gato, Mapa *mapa, float dt)
     if (alvo->vida <= 0) mapa_remover(mapa, alvo->linha, alvo->coluna);
 }
 
-/* Remove mortos, conta timers e move/morde. Retorna true se algum invadiu a casa. */
-bool gato_atualizar_lista(Gato **lista, Mapa *mapa, float dt)
+/* Remove os mortos (somando-os em *derrotados), conta timers e move/morde.
+ * Retorna true se algum invadiu a casa. */
+bool gato_atualizar_lista(Gato **lista, Mapa *mapa, float dt, int *derrotados)
 {
     bool invadiu = false;
     Gato **ligacao = lista;
@@ -96,6 +97,7 @@ bool gato_atualizar_lista(Gato **lista, Mapa *mapa, float dt)
         Gato *gato = *ligacao;
         if (gato->vida <= 0) {
             remover_no(ligacao);
+            (*derrotados)++;
             continue;
         }
 

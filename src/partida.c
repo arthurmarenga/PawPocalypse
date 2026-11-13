@@ -302,7 +302,7 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
     agir_cachorros(partida, dt);
     if (!partida_eh_tutorial(partida)) gerar_gatos_provisorio(partida, dt);
     projetil_atualizar_lista(&partida->projeteis, partida->gatos, dt);
-    if (gato_atualizar_lista(&partida->gatos, &partida->mapa, dt)) partida->derrota = true;
+    if (gato_atualizar_lista(&partida->gatos, &partida->mapa, dt, &partida->gatosDerrotados)) partida->derrota = true;
 
     soltar_petisco_do_ceu(partida, dt);
     petisco_atualizar_lista(&partida->petiscos, dt);
