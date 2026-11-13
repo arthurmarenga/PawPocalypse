@@ -46,6 +46,7 @@ typedef struct Partida {
     float    timerPetiscoCeu;    // segundos até o próximo petisco do céu
     float    timerGato;          // segundos até o próximo gato (provisório, até as hordas)
     bool     derrota;            // true quando um gato invade a casa
+    int      gatosDerrotados;
     int      passoTutorial;      // instrução atual do tutorial
     const char *aviso;           // mensagem temporária ("Petiscos insuficientes!")
     float    timerAviso;         // segundos restantes do aviso
