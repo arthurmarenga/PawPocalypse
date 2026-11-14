@@ -138,6 +138,18 @@ int gato_ferir_area(Gato *lista, int linha, float xMin, float xMax, int dano)
     return atingidos;
 }
 
+int gato_empurrar_area(Gato *lista, int linha, float xMin, float xMax, float distancia)
+{
+    int empurrados = 0;
+    for (Gato *g = lista; g != NULL; g = g->proximo) {
+        if (g->linha != linha || g->vida <= 0 || g->x < xMin || g->x > xMax) continue;
+        g->x = fminf(g->x + distancia, LARGURA_VIRTUAL + RAIO_GATO);
+        g->timerMordida = INTERVALO_MORDIDA;
+        empurrados++;
+    }
+    return empurrados;
+}
+
 void gato_ferir(Gato *gato, int dano)
 {
     gato->vida -= dano;

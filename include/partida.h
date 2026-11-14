@@ -6,6 +6,7 @@
 
 #include "raylib.h"
 #include "enemy.h"
+#include "horda.h"
 #include "map.h"
 #include "petisco.h"
 #include "projetil.h"
@@ -44,8 +45,9 @@ typedef struct Partida {
     bool     paSelecionada;
     float    tempoJogado;        // segundos de partida
     float    timerPetiscoCeu;    // segundos até o próximo petisco do céu
-    float    timerGato;          // segundos até o próximo gato (provisório, até as hordas)
+    Horda    horda;
     bool     derrota;            // true quando um gato invade a casa
+    bool     vitoria;
     int      gatosDerrotados;
     int      passoTutorial;      // instrução atual do tutorial
     const char *aviso;           // mensagem temporária ("Petiscos insuficientes!")

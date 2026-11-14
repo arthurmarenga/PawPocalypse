@@ -25,6 +25,8 @@ static const Botao botaoVoltar = { { 240, 312, 160, 30 }, "Voltar" };
 static const Botao botaoContinuar = { { 220, 160, 200, 30 }, "Continuar" };
 static const Botao botaoSairPartida = { { 220, 200, 200, 30 }, "Sair da Partida" };
 static const Botao botaoTentarDeNovo = { { 220, 160, 200, 30 }, "Tentar de novo" };
+static const Botao botaoProximaFase = { { 220, 160, 200, 30 }, "Próxima Fase" };
+static const Botao botaoVoltarMapa = { { 220, 200, 200, 30 }, "Voltar ao Mapa" };
 
 /* area_da_tela: calcula onde a tela virtual aparece dentro da janela. Usa
  * escala inteira (2x, 3x...) para todos os pixels terem o mesmo tamanho;
@@ -291,7 +293,7 @@ static void atualizar_jogando(Jogo *jogo)
         encerrar_partida(jogo, true);
     } else {
         partida_atualizar(jogo->partida, jogo->mouse, fminf(GetFrameTime(), 0.1f));
-        if (jogo->partida->derrota) jogo->estado = ESTADO_FIM_PARTIDA;
+        if (jogo->partida->derrota || jogo->partida->vitoria) jogo->estado = ESTADO_FIM_PARTIDA;
     }
 }
 
@@ -300,6 +302,15 @@ static void atualizar_jogando(Jogo *jogo)
 static void atualizar_fim_partida(Jogo *jogo)
 {
     int fase = jogo->partida->fase;
+    if (jogo->partida->vitoria) {
+        if (fase < TOTAL_FASES && ui_botao_clicado(&botaoProximaFase, jogo->mouse)) {
+            encerrar_partida(jogo, true);
+            iniciar_partida(jogo, fase + 1);
+        } else if (ui_botao_clicado(&botaoVoltarMapa, jogo->mouse)) {
+            encerrar_partida(jogo, true);
+        }
+        return;
+    }
     if (ui_botao_clicado(&botaoTentarDeNovo, jogo->mouse)) {
         encerrar_partida(jogo, false);
         iniciar_partida(jogo, fase);
@@ -316,9 +327,15 @@ static void desenhar_fim_partida(const Jogo *jogo)
     const Partida *p = jogo->partida;
     partida_desenhar(p, (Vector2){ -100, -100 });
     DrawRectangle(0, 0, LARGURA_VIRTUAL, ALTURA_VIRTUAL, Fade(BLACK, 0.65f));
-    ui_texto_centro("A CASA FOI INVADIDA!", LARGURA_VIRTUAL / 2, 90, FONTE_GRANDE, COR_ALERTA);
+    ui_texto_centro(p->vitoria ? "FASE CONCLUÍDA!" : "A CASA FOI INVADIDA!", LARGURA_VIRTUAL / 2, 90, FONTE_GRANDE,
+                    p->vitoria ? COR_INFECTADO : COR_ALERTA);
     ui_texto_centro(TextFormat("Tempo: %s    Gatos derrotados: %d", texto_tempo(p->tempoJogado), p->gatosDerrotados),
                     LARGURA_VIRTUAL / 2, 136, FONTE_PEQUENA, COR_TEXTO);
+    if (p->vitoria) {
+        if (p->fase < TOTAL_FASES) ui_desenhar_botao(&botaoProximaFase, jogo->mouse);
+        ui_desenhar_botao(&botaoVoltarMapa, jogo->mouse);
+        return;
+    }
     ui_desenhar_botao(&botaoTentarDeNovo, jogo->mouse);
     ui_desenhar_botao(&botaoSairPartida, jogo->mouse);
 }
