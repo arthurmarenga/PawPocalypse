@@ -6,9 +6,12 @@
 
 #define ALCANCE_PASTOR  (1.5f * TAMANHO_CELULA)
 #define RAIO_3X3        (1.5f * TAMANHO_CELULA)
+#define ALCANCE_SHIBA   (2.0f * TAMANHO_CELULA)
+#define EMPURRAO_SHIBA  48.0f
 
 static const Color COR_EXPLOSAO = { 255, 150,  40, 255 };
 static const Color COR_CURA     = { 130, 230, 120, 255 };
+static const Color COR_SUSTO    = { 255, 200,  80, 255 };
 
 static Vector2 centro_do(const Cachorro *cachorro)
 {
@@ -71,7 +74,7 @@ static bool morder(Partida *partida, Cachorro *cachorro)
     return gato_ferir_area(partida->gatos, cachorro->linha, x - RAIO_GATO, x + ALCANCE_PASTOR, cachorro_info(cachorro->tipo)->dano) > 0;
 }
 
-/* vida = 0 faz o mapa remover o Chihuahua após a explosão. */
+/* vida = 0 faz o mapa remover o Westie após a explosão. */
 static bool explodir_mina(Partida *partida, Cachorro *cachorro)
 {
     Rectangle celula = mapa_retangulo_celula(cachorro->linha, cachorro->coluna);
@@ -111,6 +114,14 @@ static bool curar_vizinhos(Partida *partida, Cachorro *cachorro)
     return true;
 }
 
+static bool assustar(Partida *partida, Cachorro *cachorro)
+{
+    Vector2 centro = centro_do(cachorro);
+    if (gato_empurrar_area(partida->gatos, cachorro->linha, centro.x, centro.x + ALCANCE_SHIBA, EMPURRAO_SHIBA) == 0) return false;
+    partida_adicionar_efeito(partida, centro, ALCANCE_SHIBA * 0.5f, COR_SUSTO);
+    return true;
+}
+
 static const Habilidade habilidades[TOTAL_TIPOS_CACHORRO] = {
     [TIPO_POTE_RACAO]    = produzir_petisco,
     [TIPO_BEAGLE]        = atirar,
@@ -118,10 +129,11 @@ static const Habilidade habilidades[TOTAL_TIPOS_CACHORRO] = {
     [TIPO_DALMATA]       = atirar_duplo,
     [TIPO_HUSKY]         = atirar_gelo,
     [TIPO_PASTOR_ALEMAO] = morder,
-    [TIPO_CHIHUAHUA]     = explodir_mina,
+    [TIPO_WESTIE]        = explodir_mina,
     [TIPO_SAO_BERNARDO]  = curar_vizinhos,
     [TIPO_DACHSHUND]     = atirar_tres_linhas,
     [TIPO_ROTTWEILER]    = explodir_area,
+    [TIPO_SHIBA_INU]     = assustar,
 };
 
 bool habilidade_usar(Partida *partida, Cachorro *cachorro)
