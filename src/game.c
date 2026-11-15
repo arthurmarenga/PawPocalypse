@@ -399,7 +399,9 @@ static void atualizar_fim_partida(Jogo *jogo)
     if (jogo->partida->vitoria) {
         if (fase < TOTAL_FASES && ui_botao_clicado(&botaoProximaFase, jogo->mouse)) {
             encerrar_partida(jogo, true);
-            iniciar_partida(jogo, fase + 1);
+            jogo->fasePendente = fase + 1;
+            jogo->totalSelecionados = 0;
+            jogo->estado = ESTADO_SELECAO_DECK;
         } else if (ui_botao_clicado(&botaoVoltarMapa, jogo->mouse)) {
             encerrar_partida(jogo, true);
         }
@@ -407,7 +409,9 @@ static void atualizar_fim_partida(Jogo *jogo)
     }
     if (ui_botao_clicado(&botaoTentarDeNovo, jogo->mouse)) {
         encerrar_partida(jogo, false);
-        iniciar_partida(jogo, fase);
+        jogo->fasePendente = fase;
+        jogo->totalSelecionados = 0;
+        jogo->estado = ESTADO_SELECAO_DECK;
     } else if (ui_botao_clicado(&botaoSairPartida, jogo->mouse)) {
         encerrar_partida(jogo, false);
     }
