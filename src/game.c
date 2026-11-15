@@ -365,6 +365,8 @@ Jogo *jogo_criar(void)
     jogo->tempo = 0.0f;
     jogo->saveAtual = -1;
     jogo->saveParaApagar = -1;
+    jogo->totalSelecionados = 0;
+    jogo->fasePendente = 0;
     jogo->partida = NULL;
     jogo->tela = LoadRenderTexture(LARGURA_VIRTUAL, ALTURA_VIRTUAL);
     SetTextureFilter(jogo->tela.texture, TEXTURE_FILTER_POINT);

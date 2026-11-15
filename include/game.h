@@ -30,6 +30,9 @@ typedef struct Jogo {
     Save            saves[TOTAL_SAVES];  // os 3 saves lidos do arquivo
     int             saveAtual;           // save em uso (-1 = nenhum)
     int             saveParaApagar;      // save esperando confirmação (-1 = nenhum)
+    TipoCachorro deckEscolhido[MAX_CARTAS - 1];
+    int totalSelecionados;
+    int fasePendente;
     Partida        *partida;             // partida em andamento (NULL fora dela)
 } Jogo;
 
