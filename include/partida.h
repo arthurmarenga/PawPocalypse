@@ -55,6 +55,7 @@ typedef struct Partida {
 } Partida;
 
 Partida *partida_criar(int fase);                                   // aloca a partida (NULL se faltar memória)
+void partida_configurar_deck(Partida *partida, const TipoCachorro escolhidos[MAX_CARTAS - 1]);
 void partida_atualizar(Partida *partida, Vector2 mouse, float dt);  // entrada do jogador, petiscos e recargas
 void partida_desenhar(const Partida *partida, Vector2 mouse);       // campo, barra superior e petiscos
 void partida_destruir(Partida *partida);                            // libera a partida e tudo o que ela alocou

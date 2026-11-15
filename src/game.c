@@ -27,6 +27,13 @@ static const Botao botaoSairPartida = { { 220, 200, 200, 30 }, "Sair da Partida"
 static const Botao botaoTentarDeNovo = { { 220, 160, 200, 30 }, "Tentar de novo" };
 static const Botao botaoProximaFase = { { 220, 160, 200, 30 }, "Próxima Fase" };
 static const Botao botaoVoltarMapa = { { 220, 200, 200, 30 }, "Voltar ao Mapa" };
+static const Botao botaoVoltarDeck = {
+    { 140, 326, 140, 28 }, "Voltar"
+};
+
+static const Botao botaoConfirmarDeck = {
+    { 360, 326, 140, 28 }, "Confirmar Deck"
+};
 
 /* area_da_tela: calcula onde a tela virtual aparece dentro da janela. Usa
  * escala inteira (2x, 3x...) para todos os pixels terem o mesmo tamanho;
@@ -216,12 +223,22 @@ static Rectangle retangulo_raca(int indice){
         94
     };
 }
-static void desenhar_carta_raca(int indice){
+static void desenhar_carta_raca(const Jogo  *jogo,int indice){
     TipoCachorro tipo = (TipoCachorro)(indice + 1);
     const InfoCachorro *info = cachorro_info(tipo);
     Rectangle area = retangulo_raca(indice);
+    bool selecionada = false;
 
+    for (int i = 0; i < jogo->totalSelecionados; i++) {
+        if (jogo->deckEscolhido[i] == tipo) {
+            selecionada = true;
+            break;
+    }
+}
     ui_desenhar_painel(area);
+    if (selecionada) {
+        DrawRectangleLinesEx(area, 3, COR_INFECTADO);
+    }
 
     cachorro_desenhar(tipo,
                      (Vector2){area.x + area.width / 2, area.y + 30},
@@ -233,6 +250,53 @@ static void desenhar_carta_raca(int indice){
     ui_texto_centro(TextFormat("%d petiscos", info->custo),
                     area.x + area.width / 2,
                     area.y + 76, FONTE_PEQUENA, COR_PETISCO);
+}
+static void selecionar_raca(Jogo *jogo, int indice){
+    TipoCachorro tipo = (TipoCachorro)(indice + 1);
+
+    for (int i = 0; i < jogo->totalSelecionados; i++) {
+        if (jogo->deckEscolhido[i] == tipo) {
+            for (int j = i; j < jogo->totalSelecionados - 1; j++) {
+                jogo->deckEscolhido[j] = jogo->deckEscolhido[j + 1];
+            }
+
+            jogo->totalSelecionados--;
+            return;
+        }
+    }
+
+    if (jogo->totalSelecionados < MAX_CARTAS - 1) {
+        jogo->deckEscolhido[jogo->totalSelecionados] = tipo;
+        jogo->totalSelecionados++;
+    }
+}
+static void atualizar_selecao_deck(Jogo *jogo){
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        jogo->estado = ESTADO_FASES;
+        return;
+    }
+    if (ui_botao_clicado(&botaoVoltarDeck, jogo->mouse)){
+    jogo->estado = ESTADO_FASES;
+    return;
+    }  
+    if (ui_botao_clicado(&botaoConfirmarDeck, jogo->mouse)){
+        if (jogo->totalSelecionados == MAX_CARTAS - 1){
+            iniciar_partida(jogo, jogo->fasePendente);
+
+            if (jogo->partida != NULL){
+                partida_configurar_deck(jogo->partida, jogo->deckEscolhido);
+            }
+        }
+        return;
+    }
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return;
+
+    for (int i = 0; i < TOTAL_TIPOS_CACHORRO - 1; i++) {
+        if (CheckCollisionPointRec(jogo->mouse, retangulo_raca(i))) {
+            selecionar_raca(jogo, i);
+            return;
+        }
+    }
 }
 /* atualizar_fases: Voltar/ESC retorna aos saves; clicar numa fase liberada
  * começa a seleção do deck. */
@@ -425,8 +489,7 @@ void jogo_atualizar(Jogo *jogo)
         case ESTADO_SAVES:   atualizar_saves(jogo);    break;
         case ESTADO_FASES:   atualizar_fases(jogo);    break;
         case ESTADO_SELECAO_DECK:
-            if (IsKeyPressed(KEY_ESCAPE))
-                jogo->estado = ESTADO_FASES;
+            atualizar_selecao_deck(jogo);
             break;
         case ESTADO_JOGANDO: atualizar_jogando(jogo);  break;
         case ESTADO_INSTRUCOES:
@@ -460,8 +523,16 @@ void jogo_desenhar(const Jogo *jogo)
             ui_texto_centro("Selecao de Deck", LARGURA_VIRTUAL / 2, 24,
             FONTE_MEDIA, COR_INFECTADO);
             for (int i = 0; i < TOTAL_TIPOS_CACHORRO - 1; i++) {
-                desenhar_carta_raca(i);
+                desenhar_carta_raca(jogo, i);
             }
+            ui_texto_centro(
+                TextFormat("Selecionados: %d/5", jogo->totalSelecionados),
+                LARGURA_VIRTUAL / 2,
+                310,
+                FONTE_PEQUENA,
+                COR_TEXTO);
+            ui_desenhar_botao(&botaoVoltarDeck, jogo->mouse);
+            ui_desenhar_botao(&botaoConfirmarDeck, jogo->mouse);    
             break;
         case ESTADO_INSTRUCOES: desenhar_instrucoes(jogo);                    break;
         case ESTADO_JOGANDO:    partida_desenhar(jogo->partida, jogo->mouse); break;

@@ -62,7 +62,18 @@ static void montar_deck(Partida *partida, const TipoCachorro deck[], int total)
     partida->cartaSelecionada = -1;
     for (int i = 0; i < total; i++) partida->cartas[i] = (Carta){ deck[i], 0.0f };
 }
+void partida_configurar_deck(Partida *partida, const TipoCachorro escolhidos[MAX_CARTAS - 1]){
+    if (partida == NULL || partida->fase == FASE_TUTORIAL) return;
 
+    TipoCachorro deck[MAX_CARTAS];
+    deck[0] = TIPO_POTE_RACAO;
+
+    for (int i = 0; i < MAX_CARTAS - 1; i++) {
+        deck[i + 1] = escolhidos[i];
+    }
+
+    montar_deck(partida, deck, MAX_CARTAS);
+}
 /* partida_criar: aloca a partida com malloc, zera tudo e prepara o campo
  * vazio, as listas de petiscos, gatos e bolinhas vazias, o saldo inicial e
  * o deck (fixo por enquanto: o do tutorial ou o 1º deck de teste).
