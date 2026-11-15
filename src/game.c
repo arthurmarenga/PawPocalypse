@@ -205,9 +205,37 @@ static Vector2 posicao_fase(int f)
 {
     return (Vector2){ 80.0f + f * 120.0f, 170 };
 }
+static Rectangle retangulo_raca(int indice){
+    int coluna = indice % 5;
+    int linha = indice / 5;
 
+    return (Rectangle){
+        34 + coluna * 116,
+        94 + linha * 108,
+        108,
+        94
+    };
+}
+static void desenhar_carta_raca(int indice){
+    TipoCachorro tipo = (TipoCachorro)(indice + 1);
+    const InfoCachorro *info = cachorro_info(tipo);
+    Rectangle area = retangulo_raca(indice);
+
+    ui_desenhar_painel(area);
+
+    cachorro_desenhar(tipo,
+                     (Vector2){area.x + area.width / 2, area.y + 30},
+                     17, 0, WHITE);
+
+    ui_texto_centro(info->nome, area.x + area.width / 2,
+                    area.y + 56, FONTE_PEQUENA, COR_TEXTO);
+
+    ui_texto_centro(TextFormat("%d petiscos", info->custo),
+                    area.x + area.width / 2,
+                    area.y + 76, FONTE_PEQUENA, COR_PETISCO);
+}
 /* atualizar_fases: Voltar/ESC retorna aos saves; clicar numa fase liberada
- * começa a partida dela. */
+ * começa a seleção do deck. */
 static void atualizar_fases(Jogo *jogo)
 {
     if (ui_botao_clicado(&botaoVoltar, jogo->mouse) || IsKeyPressed(KEY_ESCAPE)) {
@@ -429,8 +457,11 @@ void jogo_desenhar(const Jogo *jogo)
         case ESTADO_FASES:      desenhar_fases(jogo);                         break;
         case ESTADO_SELECAO_DECK:
             cenario_desenhar_menu(jogo->tempo);
-                ui_texto_centro("Selecao de Deck", LARGURA_VIRTUAL / 2, 24,
-                    FONTE_MEDIA, COR_INFECTADO);
+            ui_texto_centro("Selecao de Deck", LARGURA_VIRTUAL / 2, 24,
+            FONTE_MEDIA, COR_INFECTADO);
+            for (int i = 0; i < TOTAL_TIPOS_CACHORRO - 1; i++) {
+                desenhar_carta_raca(i);
+            }
             break;
         case ESTADO_INSTRUCOES: desenhar_instrucoes(jogo);                    break;
         case ESTADO_JOGANDO:    partida_desenhar(jogo->partida, jogo->mouse); break;
