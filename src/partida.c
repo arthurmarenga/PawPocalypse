@@ -24,14 +24,16 @@ static const TipoCachorro decksTeste[2][MAX_CARTAS] = {   // provisórios, até 
     { TIPO_POTE_RACAO, TIPO_PASTOR_ALEMAO, TIPO_SAO_BERNARDO, TIPO_DACHSHUND, TIPO_ROTTWEILER, TIPO_SHIBA_INU },
 };
 
-enum { TUTORIAL_COLETAR, TUTORIAL_POTE, TUTORIAL_CACHORRO, TUTORIAL_PA, TUTORIAL_FIM };
+enum { TUTORIAL_COLETAR, TUTORIAL_POTE, TUTORIAL_CACHORRO, TUTORIAL_PA, TUTORIAL_PREPARAR, TUTORIAL_COMBATE, TUTORIAL_FIM };
 
 static const char *textosTutorial[] = {
     "Clique no osso que está caindo para coletar petiscos.",
     "Compre um Pote de Ração: clique na carta e depois no campo.",
     "O pote gera petiscos sozinho! Agora coloque um Beagle.",
     "Use a pá (ou tecla S) para remover um cachorro do campo.",
-    "Muito bem! Nas fases, os gatos zumbis vão atacar. ESC para sair.",
+    "Um gato se aproxima! Coloque um Beagle na segunda linha!",
+    "Agora aguarde seu Beagle derrotar o gato zumbi!",
+    "Parabens! Voce derrotou o gato e concluiu o tutorial!",
 };
 
 /* retangulo_carta: área da carta de índice i na barra superior. */
@@ -49,9 +51,22 @@ static void avisar(Partida *partida, const char *texto)
 
 /* avancar_tutorial: se a partida for o tutorial e o jogador acabou de cumprir
  * o passo atual, passa para a próxima instrução. */
-static void avancar_tutorial(Partida *partida, int passoCumprido)
-{
-    if (partida->fase == FASE_TUTORIAL && partida->passoTutorial == passoCumprido) partida->passoTutorial++;
+static void avancar_tutorial(Partida *partida, int passoCumprido){
+    if (partida->fase != FASE_TUTORIAL ||
+        partida->passoTutorial != passoCumprido) return;
+
+    partida->passoTutorial++;
+
+    if (passoCumprido == TUTORIAL_PA) {
+        int custo = cachorro_info(TIPO_BEAGLE)->custo;
+
+        if (partida->saldo < custo) {
+            partida->saldo = custo;
+        }
+
+        partida->cartas[1].recarga = 0.0f;
+        gato_adicionar(&partida->gatos, GATO_PADRAO, 1);
+    }
 }
 
 /* montar_deck: copia os tipos do deck para as cartas da partida, com todas
@@ -215,6 +230,9 @@ static void colocar_cachorro(Partida *partida, int linha, int coluna)
     carta->recarga = info->recarga;
     partida->cartaSelecionada = -1;
     avancar_tutorial(partida, (carta->tipo == TIPO_POTE_RACAO) ? TUTORIAL_POTE : TUTORIAL_CACHORRO);
+    if (partida->passoTutorial == TUTORIAL_PREPARAR && carta->tipo == TIPO_BEAGLE && linha == 1){
+        avancar_tutorial(partida, TUTORIAL_PREPARAR);
+    }
 }
 
 /* tratar_atalhos_teste: atalhos PROVISÓRIOS para testar as raças: ']' dá
@@ -299,6 +317,10 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
     if (!partida_eh_tutorial(partida)) horda_atualizar(&partida->horda, partida->fase, &partida->gatos, dt);
     projetil_atualizar_lista(&partida->projeteis, partida->gatos, dt);
     if (gato_atualizar_lista(&partida->gatos, &partida->mapa, dt, &partida->gatosDerrotados)) partida->derrota = true;
+    if (partida->fase == FASE_TUTORIAL && partida->passoTutorial == TUTORIAL_COMBATE && partida->gatosDerrotados >= 1 && !partida->derrota){
+        avancar_tutorial(partida, TUTORIAL_COMBATE);
+        partida->vitoria = true;
+    }
     if (!partida_eh_tutorial(partida) && !partida->derrota && horda_terminou(&partida->horda)) partida->vitoria = true;
 
     soltar_petisco_do_ceu(partida, dt);

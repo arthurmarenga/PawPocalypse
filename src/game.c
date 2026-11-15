@@ -34,7 +34,9 @@ static const Botao botaoVoltarDeck = {
 static const Botao botaoConfirmarDeck = {
     { 360, 326, 140, 28 }, "Confirmar Deck"
 };
-
+static const Botao botaoConcluirTutorial = {
+    { 220, 200, 200, 30 }, "Concluir Tutorial"
+};
 /* area_da_tela: calcula onde a tela virtual aparece dentro da janela. Usa
  * escala inteira (2x, 3x...) para todos os pixels terem o mesmo tamanho;
  * o espaço que sobra vira borda preta. Retorna o retângulo de destino. */
@@ -396,6 +398,12 @@ static void atualizar_jogando(Jogo *jogo)
 static void atualizar_fim_partida(Jogo *jogo)
 {
     int fase = jogo->partida->fase;
+    if (partida_eh_tutorial(jogo->partida) && jogo->partida->vitoria){
+        if (ui_botao_clicado(&botaoConcluirTutorial, jogo->mouse)){
+            encerrar_partida(jogo, true);
+        }
+    return;
+    }
     if (jogo->partida->vitoria) {
         if (fase < TOTAL_FASES && ui_botao_clicado(&botaoProximaFase, jogo->mouse)) {
             encerrar_partida(jogo, true);
@@ -425,6 +433,15 @@ static void desenhar_fim_partida(const Jogo *jogo)
     const Partida *p = jogo->partida;
     partida_desenhar(p, (Vector2){ -100, -100 });
     DrawRectangle(0, 0, LARGURA_VIRTUAL, ALTURA_VIRTUAL, Fade(BLACK, 0.65f));
+
+    if (partida_eh_tutorial(p) && p->vitoria){
+        ui_texto_centro("TUTORIAL CONCLUIDO!", LARGURA_VIRTUAL / 2, 90, FONTE_GRANDE, COR_INFECTADO);
+
+        ui_texto_centro("Voce derrotou o gato zumbi!", LARGURA_VIRTUAL / 2, 148, FONTE_MEDIA, COR_TEXTO);
+
+        ui_desenhar_botao(&botaoConcluirTutorial, jogo->mouse);
+        return;
+    }
     ui_texto_centro(p->vitoria ? "FASE CONCLUÍDA!" : "A CASA FOI INVADIDA!", LARGURA_VIRTUAL / 2, 90, FONTE_GRANDE,
                     p->vitoria ? COR_INFECTADO : COR_ALERTA);
     ui_texto_centro(TextFormat("Tempo: %s    Gatos derrotados: %d", texto_tempo(p->tempoJogado), p->gatosDerrotados),
