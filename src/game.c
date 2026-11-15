@@ -218,7 +218,9 @@ static void atualizar_fases(Jogo *jogo)
 
     for (int f = 0; f < jogo->saves[jogo->saveAtual].faseLiberada; f++) {
         if (CheckCollisionPointCircle(jogo->mouse, posicao_fase(f), RAIO_FASE)) {
-            iniciar_partida(jogo, f + 1);
+            jogo->fasePendente = f + 1;
+            jogo->totalSelecionados = 0;
+            jogo->estado = ESTADO_SELECAO_DECK;
             return;
         }
     }
@@ -394,6 +396,10 @@ void jogo_atualizar(Jogo *jogo)
         case ESTADO_MENU:    atualizar_menu(jogo);     break;
         case ESTADO_SAVES:   atualizar_saves(jogo);    break;
         case ESTADO_FASES:   atualizar_fases(jogo);    break;
+        case ESTADO_SELECAO_DECK:
+            if (IsKeyPressed(KEY_ESCAPE))
+                jogo->estado = ESTADO_FASES;
+            break;
         case ESTADO_JOGANDO: atualizar_jogando(jogo);  break;
         case ESTADO_INSTRUCOES:
             if (ui_botao_clicado(&botaoVoltar, jogo->mouse) || IsKeyPressed(KEY_ESCAPE)) jogo->estado = ESTADO_MENU;
@@ -421,6 +427,11 @@ void jogo_desenhar(const Jogo *jogo)
         case ESTADO_MENU:       desenhar_menu(jogo);                          break;
         case ESTADO_SAVES:      desenhar_saves(jogo);                         break;
         case ESTADO_FASES:      desenhar_fases(jogo);                         break;
+        case ESTADO_SELECAO_DECK:
+            cenario_desenhar_menu(jogo->tempo);
+                ui_texto_centro("Selecao de Deck", LARGURA_VIRTUAL / 2, 24,
+                    FONTE_MEDIA, COR_INFECTADO);
+            break;
         case ESTADO_INSTRUCOES: desenhar_instrucoes(jogo);                    break;
         case ESTADO_JOGANDO:    partida_desenhar(jogo->partida, jogo->mouse); break;
         case ESTADO_PAUSA:      desenhar_pausa(jogo);                         break;

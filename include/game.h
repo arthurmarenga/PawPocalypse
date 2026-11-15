@@ -14,6 +14,7 @@ typedef enum EstadoJogo {
     ESTADO_MENU,        // tela inicial
     ESTADO_SAVES,       // escolha de um dos 3 saves
     ESTADO_FASES,       // as 5 fases do save escolhido
+    ESTADO_SELECAO_DECK,       
     ESTADO_INSTRUCOES,  // como jogar
     ESTADO_JOGANDO,     // partida em andamento
     ESTADO_PAUSA,       // partida pausada
