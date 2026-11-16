@@ -42,6 +42,15 @@ static Rectangle retangulo_carta(int i)
     return (Rectangle){ 70.0f + i * 50.0f, 8, 46, 52 };
 }
 
+static Rectangle retangulo_esteira(int indice){
+    return (Rectangle){
+        7,
+        102 + indice * 46,
+        50,
+        40
+    };
+}
+
 /* avisar: mostra uma mensagem temporária abaixo da barra superior. */
 static void avisar(Partida *partida, const char *texto)
 {
@@ -161,6 +170,7 @@ Partida *partida_criar(int fase)
     if (fase == FASE_CHEFAO){
         partida->esteira.quantidade = 0;
         partida->esteira.timerGeracao = 1.0f;
+        partida->esteira.selecionada = -1;
     }
 
     if (fase == FASE_TUTORIAL) montar_deck(partida, deckTutorial, TAMANHO(deckTutorial));
@@ -289,7 +299,40 @@ static void colocar_cachorro(Partida *partida, int linha, int coluna)
         avancar_tutorial(partida, TUTORIAL_PREPARAR);
     }
 }
+static void colocar_cachorro_esteira(Partida *partida, int linha, int coluna){
+    int indice = partida->esteira.selecionada;
 
+    if (indice < 0 || indice >= partida->esteira.quantidade){
+        return;
+    }
+
+    if (coluna >= COLUNAS_MAPA - 2){
+        avisar(partida, "Area reservada ao chefao!");
+        return;
+    }
+
+    if (partida->mapa.grade[linha][coluna] != NULL){
+        avisar(partida, "Esse espaco ja esta ocupado!");
+        return;
+    }
+
+    TipoCachorro tipo = partida->esteira.fila[indice];
+    Cachorro *novo = cachorro_criar(tipo, linha, coluna);
+
+    if (novo == NULL){
+        avisar(partida, "Sem memoria para um novo cachorro!");
+        return;
+    }
+
+    mapa_colocar(&partida->mapa, novo);
+
+    for (int i = indice; i < partida->esteira.quantidade - 1; i++) {
+        partida->esteira.fila[i] = partida->esteira.fila[i + 1];
+    }
+
+    partida->esteira.quantidade--;
+    partida->esteira.selecionada = -1;
+}
 /* tratar_atalhos_teste: atalhos PROVISÓRIOS para testar as raças: ']' dá
  * PETISCOS_TESTE petiscos (lido pelo caractere digitado, então funciona em
  * qualquer teclado) e, fora do tutorial, TAB troca o deck de teste. */
@@ -325,7 +368,21 @@ static void tratar_entrada(Partida *partida, Vector2 mouse)
         return;
     }
     if (!clicou) return;
+        if (partida->fase == FASE_CHEFAO){
+            for (int i = 0; i < partida->esteira.quantidade; i++){
+                if (CheckCollisionPointRec(mouse, retangulo_esteira(i))){
+                    if (partida->esteira.selecionada == i){
+                        partida->esteira.selecionada = -1;
+                }else{
+                    partida->esteira.selecionada = i;
+                }
 
+            partida->cartaSelecionada = -1;
+            partida->paSelecionada = false;
+            return;
+                }
+            }
+        }
     int valor = petisco_coletar(&partida->petiscos, mouse);
     if (valor > 0) {
         partida->saldo += valor;
@@ -341,6 +398,11 @@ static void tratar_entrada(Partida *partida, Vector2 mouse)
 
     int linha, coluna;
     if (!mapa_celula_no_ponto(mouse, &linha, &coluna)) return;
+    if (partida->fase == FASE_CHEFAO && partida->esteira.selecionada >= 0){
+        colocar_cachorro_esteira(partida, linha, coluna);
+        return;
+    }
+
     if (partida->paSelecionada) {
         if (partida->mapa.grade[linha][coluna] != NULL) avancar_tutorial(partida, TUTORIAL_PA);
         mapa_remover(&partida->mapa, linha, coluna);
@@ -388,6 +450,39 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
     tratar_entrada(partida, mouse);
 }
 
+static void desenhar_esteira(const Partida *partida){
+    if (partida->fase != FASE_CHEFAO) return;
+
+    ui_texto_centro("ESTEIRA", 32, 82,
+                    FONTE_PEQUENA, COR_PETISCO);
+
+    for (int i = 0; i < MAX_CARTAS_ESTEIRA; i++) {
+        Rectangle area = retangulo_esteira(i);
+
+        DrawRectangleRec(area, Fade(COR_SOMBRA, 0.85f));
+
+        DrawRectangleLinesEx(
+            area, 2,
+            i == partida->esteira.selecionada
+            ? COR_PETISCO
+            : (i < partida->esteira.quantidade
+            ? COR_INFECTADO
+            : COR_BORDA)
+        );
+        if (i < partida->esteira.quantidade){
+            TipoCachorro tipo = partida->esteira.fila[i];
+
+            cachorro_desenhar(
+            tipo,
+            (Vector2){
+                area.x + area.width / 2,
+                area.y + area.height / 2
+            },
+            13, 0, WHITE
+            );
+        }
+    }
+}
 /* desenhar_carta: desenha a carta i: fundo, forma do cachorro, custo (em
  * vermelho se não der para comprar), sombra de recarga que encolhe com o
  * tempo e borda verde se estiver selecionada. */
@@ -501,6 +596,7 @@ void partida_desenhar(const Partida *partida, Vector2 mouse)
     desenhar_previa(partida, mouse);
     if (!partida_eh_tutorial(partida)) horda_desenhar(&partida->horda);
     desenhar_hud(partida, mouse);
+    desenhar_esteira(partida);
     desenhar_mensagem(partida);
     petisco_desenhar_lista(partida->petiscos, partida->tempoJogado);
 }

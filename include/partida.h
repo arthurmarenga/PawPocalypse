@@ -36,6 +36,7 @@ typedef struct Esteira {
     TipoCachorro fila[MAX_CARTAS_ESTEIRA];
     int quantidade;
     float timerGeracao;
+    int selecionada;
 } Esteira;
 
 typedef struct Partida {
