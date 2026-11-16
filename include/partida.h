@@ -16,7 +16,9 @@
 #define MAX_CARTAS         6     // Pote de Ração + 5 cachorros do deck
 #define PETISCOS_INICIAIS  200
 #define FASE_TUTORIAL      0
+#define FASE_CHEFAO 5
 #define MAX_EFEITOS        8     // explosões/curas na tela ao mesmo tempo
+#define MAX_CARTAS_ESTEIRA 5
 
 typedef struct Carta {
     TipoCachorro tipo;
@@ -30,6 +32,12 @@ typedef struct Efeito {     // círculo que cresce e some (explosão, cura)
     Color   cor;
 } Efeito;
 
+typedef struct Esteira {
+    TipoCachorro fila[MAX_CARTAS_ESTEIRA];
+    int quantidade;
+    float timerGeracao;
+} Esteira;
+
 typedef struct Partida {
     int      fase;               // 1 a 5, ou FASE_TUTORIAL
     Mapa     mapa;               // matriz 4x8 com os cachorros
@@ -39,6 +47,7 @@ typedef struct Partida {
     int      saldo;              // petiscos disponíveis para gastar
     Carta    cartas[MAX_CARTAS]; // [0] é sempre o Pote de Ração
     int      totalCartas;
+    Esteira esteira;
     int      deckTeste;          // deck provisório em uso (TAB troca; até a escolha de deck)
     Efeito   efeitos[MAX_EFEITOS];
     int      cartaSelecionada;   // índice em cartas[], ou -1

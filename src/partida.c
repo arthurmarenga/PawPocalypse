@@ -89,6 +89,56 @@ void partida_configurar_deck(Partida *partida, const TipoCachorro escolhidos[MAX
 
     montar_deck(partida, deck, MAX_CARTAS);
 }
+
+static TipoCachorro sortear_cachorro_esteira(const Partida *partida){
+    // 65% de chance de sortear do deck
+    if (rand() % 100 < 65) {
+        int indice = 1 + rand() % (MAX_CARTAS - 1);
+        return partida->cartas[indice].tipo;
+    }
+
+    // 35% de chance de sortear fora do deck
+    TipoCachorro outras[TOTAL_TIPOS_CACHORRO - MAX_CARTAS];
+    int quantidade = 0;
+
+    for (int tipo = 1; tipo < TOTAL_TIPOS_CACHORRO; tipo++){
+        bool escolhido = false;
+
+        for (int i = 1; i < MAX_CARTAS; i++) {
+            if (partida->cartas[i].tipo == (TipoCachorro)tipo){
+                escolhido = true;
+                break;
+            }
+        }
+
+        if (!escolhido) {
+            outras[quantidade++] = (TipoCachorro)tipo;
+        }
+    }
+
+    return outras[rand() % quantidade];
+}
+
+static void atualizar_esteira(Partida *partida, float dt){
+    if (partida->fase != FASE_CHEFAO) return;
+
+    if (partida->esteira.quantidade >= MAX_CARTAS_ESTEIRA){
+        return;
+    }
+
+    partida->esteira.timerGeracao -= dt;
+
+    if (partida->esteira.timerGeracao > 0.0f){
+        return;
+    }
+
+    TipoCachorro sorteado = sortear_cachorro_esteira(partida);
+
+    partida->esteira.fila[partida->esteira.quantidade] = sorteado;
+    partida->esteira.quantidade++;
+
+    partida->esteira.timerGeracao = 7.0f;
+}
 /* partida_criar: aloca a partida com malloc, zera tudo e prepara o campo
  * vazio, as listas de petiscos, gatos e bolinhas vazias, o saldo inicial e
  * o deck (fixo por enquanto: o do tutorial ou o 1º deck de teste).
@@ -107,6 +157,11 @@ Partida *partida_criar(int fase)
     partida->saldo = PETISCOS_INICIAIS;
     partida->timerPetiscoCeu = (fase == FASE_TUTORIAL) ? 1.0f : 5.0f;
     horda_iniciar(&partida->horda);
+
+    if (fase == FASE_CHEFAO){
+        partida->esteira.quantidade = 0;
+        partida->esteira.timerGeracao = 1.0f;
+    }
 
     if (fase == FASE_TUTORIAL) montar_deck(partida, deckTutorial, TAMANHO(deckTutorial));
     else                       montar_deck(partida, decksTeste[0], MAX_CARTAS);
@@ -307,11 +362,16 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
     partida->tempoJogado += dt;
     if (partida->timerAviso > 0.0f) partida->timerAviso -= dt;
     for (int i = 0; i < MAX_EFEITOS; i++) {
-        if (partida->efeitos[i].tempo > 0.0f) partida->efeitos[i].tempo -= dt;
+        if (partida->efeitos[i].tempo > 0.0f) 
+            partida->efeitos[i].tempo -= dt;
     }
     for (int i = 0; i < partida->totalCartas; i++) {
-        if (partida->cartas[i].recarga > 0.0f) partida->cartas[i].recarga -= dt;
+        if (partida->cartas[i].recarga > 0.0f) 
+            partida->cartas[i].recarga -= dt;
+
     }
+
+    atualizar_esteira(partida, dt);
 
     agir_cachorros(partida, dt);
     if (!partida_eh_tutorial(partida)) horda_atualizar(&partida->horda, partida->fase, &partida->gatos, dt);
