@@ -263,6 +263,9 @@ static void desenhar_efeitos(const Partida *partida)
  * houver petiscos suficientes. */
 static void selecionar_carta(Partida *partida, int i)
 {
+    if (partida->fase == FASE_CHEFAO){ 
+        return;
+    }
     const Carta *carta = &partida->cartas[i];
 
     partida->paSelecionada = false;
@@ -436,16 +439,22 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
     atualizar_esteira(partida, dt);
 
     agir_cachorros(partida, dt);
-    if (!partida_eh_tutorial(partida)) horda_atualizar(&partida->horda, partida->fase, &partida->gatos, dt);
+    if (!partida_eh_tutorial(partida) && partida->fase != FASE_CHEFAO) {
+        horda_atualizar(&partida->horda, partida->fase, &partida->gatos, dt);
+    }
     projetil_atualizar_lista(&partida->projeteis, partida->gatos, dt);
     if (gato_atualizar_lista(&partida->gatos, &partida->mapa, dt, &partida->gatosDerrotados)) partida->derrota = true;
     if (partida->fase == FASE_TUTORIAL && partida->passoTutorial == TUTORIAL_COMBATE && partida->gatosDerrotados >= 1 && !partida->derrota){
         avancar_tutorial(partida, TUTORIAL_COMBATE);
         partida->vitoria = true;
     }
-    if (!partida_eh_tutorial(partida) && !partida->derrota && horda_terminou(&partida->horda)) partida->vitoria = true;
+    if (!partida_eh_tutorial(partida) && partida->fase != FASE_CHEFAO && !partida->derrota && horda_terminou(&partida->horda)){
+        partida->vitoria = true;
+    }
 
-    soltar_petisco_do_ceu(partida, dt);
+    if (partida->fase != FASE_CHEFAO){
+        soltar_petisco_do_ceu(partida, dt);
+    }
     petisco_atualizar_lista(&partida->petiscos, dt);
     tratar_entrada(partida, mouse);
 }
@@ -508,11 +517,22 @@ static void desenhar_carta(const Partida *partida, int i)
 static void desenhar_hud(const Partida *partida, Vector2 mouse)
 {
     ui_desenhar_painel((Rectangle){ 4, 4, 632, 60 });
-    DrawRectangleRec(RET_CONTADOR, (Color){ 52, 36, 30, 255 });
-    petisco_desenhar_biscoito((Vector2){ 36, 24 }, 2);
-    ui_texto_centro(TextFormat("%d", partida->saldo), 36, 38, FONTE_MEDIA, COR_TEXTO);
 
-    for (int i = 0; i < partida->totalCartas; i++) desenhar_carta(partida, i);
+    if (partida->fase != FASE_CHEFAO){
+        DrawRectangleRec(RET_CONTADOR, (Color){ 52, 36, 30, 255 });
+        petisco_desenhar_biscoito((Vector2){ 36, 24 }, 2);
+
+        ui_texto_centro(TextFormat("%d", partida->saldo),
+                    36, 38, FONTE_MEDIA, COR_TEXTO);
+
+        for (int i = 0; i < partida->totalCartas; i++){
+            desenhar_carta(partida, i);
+        }
+    } else{
+        ui_texto("BATALHA DO CHEFAO", 18, 18, FONTE_MEDIA, COR_INFECTADO);
+
+        ui_texto("Escolha os cachorros na esteira", 18, 45, FONTE_PEQUENA, COR_TEXTO);
+    }
 
     DrawRectangleRec(RET_PA, partida->paSelecionada ? (Color){ 120, 150, 90, 255 } : (Color){ 110, 100, 96, 255 });
     DrawRectangleLinesEx(RET_PA, 2, partida->paSelecionada ? COR_INFECTADO : COR_BORDA);
@@ -522,9 +542,18 @@ static void desenhar_hud(const Partida *partida, Vector2 mouse)
     int s = (int)partida->tempoJogado;
     ui_texto(partida_eh_tutorial(partida) ? "TUTORIAL" : TextFormat("FASE %d", partida->fase), 440, 12, FONTE_MEDIA, COR_INFECTADO);
     int horda = (partida->horda.atual < HORDAS_POR_FASE) ? partida->horda.atual + 1 : HORDAS_POR_FASE;
-    if (partida_eh_tutorial(partida)) ui_texto(TextFormat("Tempo: %02d:%02d", s / 60, s % 60), 440, 36, FONTE_PEQUENA, COR_TEXTO);
-    else ui_texto(TextFormat("Tempo: %02d:%02d   Horda %d/%d", s / 60, s % 60, horda, HORDAS_POR_FASE), 440, 36, FONTE_PEQUENA, COR_TEXTO);
 
+    if (partida->fase == FASE_CHEFAO){
+        ui_texto(TextFormat("Tempo: %02d:%02d", s / 60, s % 60), 440, 36, FONTE_PEQUENA, COR_TEXTO);
+
+    }else if (partida_eh_tutorial(partida)){
+        ui_texto(TextFormat("Tempo: %02d:%02d", s / 60, s % 60), 440, 36, FONTE_PEQUENA, COR_TEXTO);
+        
+    }else{
+        ui_texto(TextFormat("Tempo: %02d:%02d   Horda %d/%d",
+             s / 60, s % 60, horda, HORDAS_POR_FASE),
+             440, 36, FONTE_PEQUENA, COR_TEXTO);
+    }
     const char *dica = "ESC: pausa";
     for (int i = 0; i < partida->totalCartas; i++) {
         const InfoCachorro *info = cachorro_info(partida->cartas[i].tipo);
@@ -594,7 +623,9 @@ void partida_desenhar(const Partida *partida, Vector2 mouse)
     projetil_desenhar_lista(partida->projeteis);
     desenhar_efeitos(partida);
     desenhar_previa(partida, mouse);
-    if (!partida_eh_tutorial(partida)) horda_desenhar(&partida->horda);
+    if (!partida_eh_tutorial(partida) && partida->fase != FASE_CHEFAO){
+        horda_desenhar(&partida->horda);
+    }
     desenhar_hud(partida, mouse);
     desenhar_esteira(partida);
     desenhar_mensagem(partida);
