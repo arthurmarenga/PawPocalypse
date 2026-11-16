@@ -51,6 +51,7 @@ typedef struct Partida {
     Esteira esteira;
     float timerTrocaLinhaChefao;
     float timerInvocacaoChefao;
+    float timerAtaqueChefao;
     int      deckTeste;          // deck provisório em uso (TAB troca; até a escolha de deck)
     Efeito   efeitos[MAX_EFEITOS];
     int      cartaSelecionada;   // índice em cartas[], ou -1

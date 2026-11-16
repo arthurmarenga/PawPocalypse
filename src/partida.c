@@ -213,6 +213,48 @@ static void atualizar_invocacao_chefao(Partida *partida, float dt){
         partida->timerInvocacaoChefao = 12.0f;
     }
 }
+
+static void atualizar_ataque_chefao(Partida *partida, float dt){
+    if (partida->fase != FASE_CHEFAO){
+        return;
+    }
+
+    partida->timerAtaqueChefao -= dt;
+
+    if(partida->timerAtaqueChefao > 0.0f){
+        return;
+    }
+
+    Gato *chefao = partida->gatos;
+
+    while (chefao != NULL && chefao->tipo != GATO_CHEFAO){
+        chefao = chefao->proximo;
+    }
+
+    if(chefao == NULL || chefao->vida <= 0){
+        return;
+    }
+
+    int linha = chefao->linha;
+    int dano = gato_info(GATO_CHEFAO)->danoMordida;
+
+    for( int coluna = 0; coluna < COLUNAS_MAPA - 2; coluna++){
+        Cachorro * cachorro = partida->mapa.grade[linha][coluna];
+
+        if(cachorro == NULL){
+            continue;
+        }
+        cachorro->vida -= dano;
+
+        partida_adicionar_efeito(partida, mapa_centro_celula(linha, coluna), TAMANHO_CELULA * 0.45f, COR_ALERTA);
+
+        if(cachorro->vida <= 0){
+            mapa_remover(&partida->mapa, linha, coluna);
+        }
+    }
+
+    partida->timerAtaqueChefao = 10.0f;
+}
 /* partida_criar: aloca a partida com malloc, zera tudo e prepara o campo
  * vazio, as listas de petiscos, gatos e bolinhas vazias, o saldo inicial e
  * o deck (fixo por enquanto: o do tutorial ou o 1º deck de teste).
@@ -239,6 +281,7 @@ Partida *partida_criar(int fase)
         gato_adicionar(&partida->gatos, GATO_CHEFAO, 1);
         partida->timerTrocaLinhaChefao = 6.0f;
         partida->timerInvocacaoChefao = 12.0f;
+        partida->timerAtaqueChefao = 10.0f;
     }
 
     if (fase == FASE_TUTORIAL) montar_deck(partida, deckTutorial, TAMANHO(deckTutorial));
@@ -507,6 +550,7 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
     atualizar_esteira(partida, dt);
     atualizar_movimento_chefao(partida, dt);
     atualizar_invocacao_chefao(partida, dt);
+    atualizar_ataque_chefao(partida, dt);
 
     agir_cachorros(partida, dt);
     if (!partida_eh_tutorial(partida) && partida->fase != FASE_CHEFAO) {
