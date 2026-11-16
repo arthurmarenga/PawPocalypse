@@ -148,6 +148,34 @@ static void atualizar_esteira(Partida *partida, float dt){
 
     partida->esteira.timerGeracao = 7.0f;
 }
+
+static void atualizar_movimento_chefao(Partida *partida, float dt){
+    if (partida->fase != FASE_CHEFAO) return;
+
+    partida->timerTrocaLinhaChefao -= dt;
+
+    if (partida->timerTrocaLinhaChefao > 0.0f){
+        return;
+    }
+    Gato *chefao = partida->gatos;
+
+    while (chefao != NULL && chefao->tipo != GATO_CHEFAO){
+        chefao = chefao->proximo;
+    }
+
+    if (chefao == NULL || chefao->vida <= 0) {
+        return;
+    }
+    int novaLinha = rand() % (LINHAS_MAPA - 1);
+
+    if (novaLinha >= chefao->linha){
+        novaLinha++;
+    }
+
+    chefao->linha = novaLinha;
+
+    partida->timerTrocaLinhaChefao = 6.0f;
+}
 /* partida_criar: aloca a partida com malloc, zera tudo e prepara o campo
  * vazio, as listas de petiscos, gatos e bolinhas vazias, o saldo inicial e
  * o deck (fixo por enquanto: o do tutorial ou o 1º deck de teste).
@@ -171,6 +199,8 @@ Partida *partida_criar(int fase)
         partida->esteira.quantidade = 0;
         partida->esteira.timerGeracao = 1.0f;
         partida->esteira.selecionada = -1;
+        gato_adicionar(&partida->gatos, GATO_CHEFAO, 1);
+        partida->timerTrocaLinhaChefao = 6.0f;
     }
 
     if (fase == FASE_TUTORIAL) montar_deck(partida, deckTutorial, TAMANHO(deckTutorial));
@@ -437,6 +467,7 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
     }
 
     atualizar_esteira(partida, dt);
+    atualizar_movimento_chefao(partida, dt);
 
     agir_cachorros(partida, dt);
     if (!partida_eh_tutorial(partida) && partida->fase != FASE_CHEFAO) {
@@ -548,7 +579,7 @@ static void desenhar_hud(const Partida *partida, Vector2 mouse)
 
     }else if (partida_eh_tutorial(partida)){
         ui_texto(TextFormat("Tempo: %02d:%02d", s / 60, s % 60), 440, 36, FONTE_PEQUENA, COR_TEXTO);
-        
+
     }else{
         ui_texto(TextFormat("Tempo: %02d:%02d   Horda %d/%d",
              s / 60, s % 60, horda, HORDAS_POR_FASE),

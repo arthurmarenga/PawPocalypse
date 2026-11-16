@@ -49,6 +49,7 @@ typedef struct Partida {
     Carta    cartas[MAX_CARTAS]; // [0] é sempre o Pote de Ração
     int      totalCartas;
     Esteira esteira;
+    float timerTrocaLinhaChefao;
     int      deckTeste;          // deck provisório em uso (TAB troca; até a escolha de deck)
     Efeito   efeitos[MAX_EFEITOS];
     int      cartaSelecionada;   // índice em cartas[], ou -1

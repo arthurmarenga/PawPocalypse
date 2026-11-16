@@ -22,7 +22,8 @@ typedef enum TipoGato {
     GATO_SIAMES,       // rápido
     GATO_PERSA,        // pelo fofo: imune ao gelo
     GATO_TELHADO,      // pula o primeiro cachorro (menos o Bulldog)
-    GATO_MAINE_COON,   // tanque: enorme e com mordida forte
+    GATO_MAINE_COON,
+    GATO_CHEFAO,   // tanque: enorme e com mordida forte
     TOTAL_TIPOS_GATO
 } TipoGato;
 

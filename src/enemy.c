@@ -20,6 +20,17 @@ static const InfoGato infos[TOTAL_TIPOS_GATO] = {
     [GATO_PERSA]      = { "Persa",            450,   7.0f,     100,    true,      false, 1.15f, SPRITE_GATO_PADRAO, { 235, 235, 250, 255 } },
     [GATO_TELHADO]    = { "Gato de Telhado",  250,   9.0f,     100,    false,     true,  1.00f, SPRITE_GATO_PADRAO, { 165, 165, 180, 255 } },
     [GATO_MAINE_COON] = { "Maine Coon",      3000,   5.0f,     300,    false,     false, 1.50f, SPRITE_GATO_PADRAO, { 205, 145,  95, 255 } },
+    [GATO_CHEFAO] ={
+    "Chefao",
+    5000,
+    0.0f,
+    150,
+    false,
+    false,
+    2.0f,
+    SPRITE_GATO_PADRAO,
+    { 200, 80, 180, 255 }
+    },
 };
 
 const InfoGato *gato_info(TipoGato tipo)
@@ -37,6 +48,9 @@ bool gato_adicionar(Gato **lista, TipoGato tipo, int linha)
     novo->tipo = tipo;
     novo->linha = linha;
     novo->x = LARGURA_VIRTUAL + RAIO_GATO * infos[tipo].escala;
+    if (tipo == GATO_CHEFAO){
+        novo->x = MAPA_X + (COLUNAS_MAPA - 1) * TAMANHO_CELULA;
+    }
     novo->vida = infos[tipo].vidaMaxima;
     novo->proximo = *lista;
     *lista = novo;
