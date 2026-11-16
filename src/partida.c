@@ -176,6 +176,43 @@ static void atualizar_movimento_chefao(Partida *partida, float dt){
 
     partida->timerTrocaLinhaChefao = 6.0f;
 }
+
+static void atualizar_invocacao_chefao(Partida *partida, float dt){
+    if (partida->fase != FASE_CHEFAO){ 
+        return;
+    }
+    Gato *chefao = partida->gatos;
+
+    while (chefao != NULL && chefao->tipo != GATO_CHEFAO){
+        chefao = chefao->proximo;
+    }
+
+    if (chefao == NULL || chefao->vida <= 0){
+        return;
+    }
+    partida->timerInvocacaoChefao -= dt;
+
+    if (partida->timerInvocacaoChefao > 0.0f){
+        return;
+    }
+
+    int sorteio = rand() % 100;
+    TipoGato tipo;
+
+    if (sorteio < 70){
+        tipo = GATO_PADRAO;
+    } else if (sorteio < 90){
+        tipo = GATO_CAIXA;
+    } else{
+        tipo = GATO_SIAMES;
+    }
+
+    int linha = rand() % LINHAS_MAPA;
+
+    if (gato_adicionar(&partida->gatos, tipo, linha)){
+        partida->timerInvocacaoChefao = 12.0f;
+    }
+}
 /* partida_criar: aloca a partida com malloc, zera tudo e prepara o campo
  * vazio, as listas de petiscos, gatos e bolinhas vazias, o saldo inicial e
  * o deck (fixo por enquanto: o do tutorial ou o 1º deck de teste).
@@ -201,6 +238,7 @@ Partida *partida_criar(int fase)
         partida->esteira.selecionada = -1;
         gato_adicionar(&partida->gatos, GATO_CHEFAO, 1);
         partida->timerTrocaLinhaChefao = 6.0f;
+        partida->timerInvocacaoChefao = 12.0f;
     }
 
     if (fase == FASE_TUTORIAL) montar_deck(partida, deckTutorial, TAMANHO(deckTutorial));
@@ -468,6 +506,7 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
 
     atualizar_esteira(partida, dt);
     atualizar_movimento_chefao(partida, dt);
+    atualizar_invocacao_chefao(partida, dt);
 
     agir_cachorros(partida, dt);
     if (!partida_eh_tutorial(partida) && partida->fase != FASE_CHEFAO) {
