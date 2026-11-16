@@ -255,6 +255,19 @@ static void atualizar_ataque_chefao(Partida *partida, float dt){
 
     partida->timerAtaqueChefao = 10.0f;
 }
+
+static bool chefe_derrotado(const Partida *partida){
+    if(partida->fase != FASE_CHEFAO){
+        return false;
+    }
+
+    for(const Gato *gato = partida->gatos; gato != NULL; gato = gato->proximo){
+        if(gato->tipo == GATO_CHEFAO){
+            return gato->vida <= 0;
+        }
+    }
+    return false;
+}
 /* partida_criar: aloca a partida com malloc, zera tudo e prepara o campo
  * vazio, as listas de petiscos, gatos e bolinhas vazias, o saldo inicial e
  * o deck (fixo por enquanto: o do tutorial ou o 1º deck de teste).
@@ -557,7 +570,11 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
         horda_atualizar(&partida->horda, partida->fase, &partida->gatos, dt);
     }
     projetil_atualizar_lista(&partida->projeteis, partida->gatos, dt);
+    bool chefaoDerrotado = chefe_derrotado(partida);
     if (gato_atualizar_lista(&partida->gatos, &partida->mapa, dt, &partida->gatosDerrotados)) partida->derrota = true;
+    if(chefaoDerrotado && !partida->derrota){
+        partida->vitoria = true;
+    }
     if (partida->fase == FASE_TUTORIAL && partida->passoTutorial == TUTORIAL_COMBATE && partida->gatosDerrotados >= 1 && !partida->derrota){
         avancar_tutorial(partida, TUTORIAL_COMBATE);
         partida->vitoria = true;
