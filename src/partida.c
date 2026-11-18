@@ -333,11 +333,12 @@ static void soltar_petisco_do_ceu(Partida *partida, float dt)
     partida->timerPetiscoCeu = INTERVALO_CEU + rand() % 5;
 }
 
-/* agir_cachorro: conta o tempo até a próxima ação do cachorro; quando ele
- * chega a zero, usa a habilidade da raça e, se ela agiu, recomeça a contar
+/* agir_cachorro: avança a animação do cachorro e conta o tempo até a próxima ação;
+ * quando ele chega a zero, usa a habilidade da raça e, se ela agiu, recomeça a contar
  * a cadência. Se não agiu (sem alvo), tenta de novo no próximo frame. */
 static void agir_cachorro(Partida *partida, Cachorro *cachorro, float dt)
 {
+    cachorro->animacao += dt;
     cachorro->timer -= dt;
     if (cachorro->timer > 0.0f) return;
     if (habilidade_usar(partida, cachorro)) cachorro->timer = cachorro_info(cachorro->tipo)->cadencia;
