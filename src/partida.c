@@ -571,7 +571,9 @@ void partida_atualizar(Partida *partida, Vector2 mouse, float dt)
     }
     projetil_atualizar_lista(&partida->projeteis, partida->gatos, dt);
     bool chefaoDerrotado = chefe_derrotado(partida);
-    if (gato_atualizar_lista(&partida->gatos, &partida->mapa, dt, &partida->gatosDerrotados)) partida->derrota = true;
+    if (gato_atualizar_lista(&partida->gatos, &partida->mapa, dt, &partida->gatosDerrotados, &partida->pontosGatos)){
+         partida->derrota = true;
+    }
     if(chefaoDerrotado && !partida->derrota){
         partida->vitoria = true;
     }

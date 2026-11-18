@@ -13,13 +13,13 @@
 
 static const InfoGato infos[TOTAL_TIPOS_GATO] = {
     /*                     nome              vida  velocidade mordida  imuneGelo  pula  escala  sprite              tinta */
-    [GATO_PADRAO]     = { "Gato Zumbi",       200,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_PADRAO, { 255, 255, 255, 255 } },
-    [GATO_CAIXA]      = { "Gato da Caixa",    560,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_CAIXA,  { 255, 255, 255, 255 } },
-    [GATO_LATA]       = { "Gato da Lata",    1300,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_LATA,   { 255, 255, 255, 255 } },
-    [GATO_SIAMES]     = { "Siamês",           180,  16.0f,     100,    false,     false, 1.00f, SPRITE_GATO_PADRAO, { 245, 220, 175, 255 } },
-    [GATO_PERSA]      = { "Persa",            450,   7.0f,     100,    true,      false, 1.15f, SPRITE_GATO_PADRAO, { 235, 235, 250, 255 } },
-    [GATO_TELHADO]    = { "Gato de Telhado",  250,   9.0f,     100,    false,     true,  1.00f, SPRITE_GATO_PADRAO, { 165, 165, 180, 255 } },
-    [GATO_MAINE_COON] = { "Maine Coon",      3000,   5.0f,     300,    false,     false, 1.50f, SPRITE_GATO_PADRAO, { 205, 145,  95, 255 } },
+    [GATO_PADRAO]     = { "Gato Zumbi",       200,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_PADRAO, { 255, 255, 255, 255 }, 10 },
+    [GATO_CAIXA]      = { "Gato da Caixa",    560,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_CAIXA,  { 255, 255, 255, 255 }, 15 },
+    [GATO_LATA]       = { "Gato da Lata",    1300,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_LATA,   { 255, 255, 255, 255 }, 30 },
+    [GATO_SIAMES]     = { "Siamês",           180,  16.0f,     100,    false,     false, 1.00f, SPRITE_GATO_PADRAO, { 245, 220, 175, 255 }, 25 },
+    [GATO_PERSA]      = { "Persa",            450,   7.0f,     100,    true,      false, 1.15f, SPRITE_GATO_PADRAO, { 235, 235, 250, 255 }, 30 },
+    [GATO_TELHADO]    = { "Gato de Telhado",  250,   9.0f,     100,    false,     true,  1.00f, SPRITE_GATO_PADRAO, { 165, 165, 180, 255 }, 25 },
+    [GATO_MAINE_COON] = { "Maine Coon",      3000,   5.0f,     300,    false,     false, 1.50f, SPRITE_GATO_PADRAO, { 205, 145,  95, 255 }, 50 },
     [GATO_CHEFAO] ={
     "Chefao",
     5000,
@@ -29,7 +29,8 @@ static const InfoGato infos[TOTAL_TIPOS_GATO] = {
     false,
     2.0f,
     SPRITE_GATO_PADRAO,
-    { 200, 80, 180, 255 }
+    { 200, 80, 180, 255 },
+    200,
     },
 };
 
@@ -103,13 +104,14 @@ static void mover_ou_morder(Gato *gato, Mapa *mapa, float dt)
 
 /* Remove os mortos (somando-os em *derrotados), conta timers e move/morde.
  * Retorna true se algum invadiu a casa. */
-bool gato_atualizar_lista(Gato **lista, Mapa *mapa, float dt, int *derrotados)
+bool gato_atualizar_lista(Gato **lista, Mapa *mapa, float dt, int *derrotados, int *pontosGatos)
 {
     bool invadiu = false;
     Gato **ligacao = lista;
     while (*ligacao != NULL) {
         Gato *gato = *ligacao;
         if (gato->vida <= 0) {
+            *pontosGatos += gato_info(gato->tipo)->pontos;
             remover_no(ligacao);
             (*derrotados)++;
             continue;

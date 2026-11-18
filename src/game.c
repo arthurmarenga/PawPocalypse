@@ -84,6 +84,7 @@ static void encerrar_partida(Jogo *jogo, bool venceu)
         save->tempoJogado += partida->tempoJogado;
         if (venceu) {
             save->faseConcluida[partida->fase - 1] = true;
+            save->pontuacao += partida->pontosGatos;
             if (partida->fase < TOTAL_FASES && save->faseLiberada <= partida->fase) save->faseLiberada = partida->fase + 1;
         }
         gravar_saves(jogo);
@@ -446,6 +447,7 @@ static void desenhar_fim_partida(const Jogo *jogo)
                     p->vitoria ? COR_INFECTADO : COR_ALERTA);
     ui_texto_centro(TextFormat("Tempo: %s    Gatos derrotados: %d", texto_tempo(p->tempoJogado), p->gatosDerrotados),
                     LARGURA_VIRTUAL / 2, 136, FONTE_PEQUENA, COR_TEXTO);
+    ui_texto_centro(TextFormat("Pontos: %d", p->pontosGatos), LARGURA_VIRTUAL/2, 136, FONTE_PEQUENA, COR_TEXTO);
     if (p->vitoria) {
         if (p->fase < TOTAL_FASES) ui_desenhar_botao(&botaoProximaFase, jogo->mouse);
         ui_desenhar_botao(&botaoVoltarMapa, jogo->mouse);

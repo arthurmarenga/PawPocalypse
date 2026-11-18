@@ -62,6 +62,7 @@ typedef struct Partida {
     bool     derrota;            // true quando um gato invade a casa
     bool     vitoria;
     int      gatosDerrotados;
+    int      pontosGatos;
     int      passoTutorial;      // instrução atual do tutorial
     const char *aviso;           // mensagem temporária ("Petiscos insuficientes!")
     float    timerAviso;         // segundos restantes do aviso
