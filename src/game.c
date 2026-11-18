@@ -73,18 +73,26 @@ static void iniciar_partida(Jogo *jogo, int fase)
 /* encerrar_partida: soma o tempo jogado ao save atual e, se 'venceu', marca
  * a fase como concluída e libera a próxima; grava o arquivo, destrói a
  * partida e volta para o mapa de fases (ou para o menu, se era o tutorial). */
-static void encerrar_partida(Jogo *jogo, bool venceu)
-{
-    Partida *partida = jogo->partida;
-    if (partida == NULL) return;
+static void encerrar_partida(Jogo *jogo, bool venceu){
 
+    Partida *partida = jogo->partida;
+    if (partida == NULL){ 
+        return;
+    }
+    int bonusFase = 100 * partida->fase;
+    int bonusTempo = 1000 - (int)partida->tempoJogado;
+    if(bonusTempo < 0){
+        bonusTempo = 0;
+    }
     bool tutorial = partida_eh_tutorial(partida);
     if (!tutorial && jogo->saveAtual >= 0) {
         Save *save = &jogo->saves[jogo->saveAtual];
         save->tempoJogado += partida->tempoJogado;
-        if (venceu) {
+        if (venceu){
+            
             save->faseConcluida[partida->fase - 1] = true;
-            save->pontuacao += partida->pontosGatos;
+            save->pontuacao += partida->pontosGatos + bonusFase + bonusTempo;
+
             if (partida->fase < TOTAL_FASES && save->faseLiberada <= partida->fase) save->faseLiberada = partida->fase + 1;
         }
         gravar_saves(jogo);
@@ -429,9 +437,22 @@ static void atualizar_fim_partida(Jogo *jogo)
 /* desenhar_fim_partida: a partida congelada e escurecida ao fundo, desenhada
  * com o mouse "fora da tela" para nada no fundo reagir a ele, com a mensagem
  * de derrota, o tempo, os gatos derrotados e os botões por cima. */
-static void desenhar_fim_partida(const Jogo *jogo)
-{
+static void desenhar_fim_partida(const Jogo *jogo){
+
     const Partida *p = jogo->partida;
+    int pontosTotais = p->pontosGatos;
+
+    if(p->vitoria){
+        int bonusFase = 100 * p->fase;
+        int bonusTempo = 1000 - (int)p->tempoJogado;
+
+        if (bonusTempo < 0){
+            bonusTempo = 0;
+        }
+
+    pontosTotais += bonusFase + bonusTempo;
+
+    }
     partida_desenhar(p, (Vector2){ -100, -100 });
     DrawRectangle(0, 0, LARGURA_VIRTUAL, ALTURA_VIRTUAL, Fade(BLACK, 0.65f));
 
@@ -447,7 +468,7 @@ static void desenhar_fim_partida(const Jogo *jogo)
                     p->vitoria ? COR_INFECTADO : COR_ALERTA);
     ui_texto_centro(TextFormat("Tempo: %s    Gatos derrotados: %d", texto_tempo(p->tempoJogado), p->gatosDerrotados),
                     LARGURA_VIRTUAL / 2, 136, FONTE_PEQUENA, COR_TEXTO);
-    ui_texto_centro(TextFormat("Pontos: %d", p->pontosGatos), LARGURA_VIRTUAL/2, 136, FONTE_PEQUENA, COR_TEXTO);
+    ui_texto_centro(TextFormat("Pontos: %d", pontosTotais), LARGURA_VIRTUAL/2, 160, FONTE_PEQUENA, COR_TEXTO);
     if (p->vitoria) {
         if (p->fase < TOTAL_FASES) ui_desenhar_botao(&botaoProximaFase, jogo->mouse);
         ui_desenhar_botao(&botaoVoltarMapa, jogo->mouse);
