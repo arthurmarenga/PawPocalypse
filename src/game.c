@@ -1,42 +1,35 @@
 /* game.c - Máquina de estados das telas: menu, saves, fases, instruções,
- * partida e pausa. */
+ * ranking, partida (com a tela de resultado) e pausa. */
 
 #include "game.h"
 #include "cenario.h"
 #include "config.h"
+#include "som.h"
 #include "sprite.h"
 #include "ui.h"
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define RAIO_FASE 28
 
-enum { BOTAO_JOGAR, BOTAO_TUTORIAL, BOTAO_INSTRUCOES, BOTAO_SAIR, TOTAL_BOTOES_MENU };
+enum { BOTAO_JOGAR, BOTAO_TUTORIAL, BOTAO_INSTRUCOES, BOTAO_RANKING, BOTAO_SAIR, TOTAL_BOTOES_MENU };
 
 static const Botao botoesMenu[TOTAL_BOTOES_MENU] = {
     { { 240, 136, 160, 30 }, "Jogar"      },
     { { 240, 172, 160, 30 }, "Tutorial"   },
     { { 240, 208, 160, 30 }, "Instruções" },
-    { { 240, 244, 160, 30 }, "Sair"       },
+    { { 240, 244, 160, 30 }, "Ranking"    },
+    { { 240, 280, 160, 30 }, "Sair"       },
 };
 static const Botao botaoVoltar = { { 240, 312, 160, 30 }, "Voltar" };
+static const Rectangle DESLIZADOR_MUSICA = { 520, 324, 80, 6 };
+static const Rectangle DESLIZADOR_EFEITOS = { 520, 342, 80, 6 };
 static const Botao botaoContinuar = { { 220, 160, 200, 30 }, "Continuar" };
 static const Botao botaoSairPartida = { { 220, 200, 200, 30 }, "Sair da Partida" };
-static const Botao botaoTentarDeNovo = { { 220, 160, 200, 30 }, "Tentar de novo" };
-static const Botao botaoProximaFase = { { 220, 160, 200, 30 }, "Próxima Fase" };
-static const Botao botaoVoltarMapa = { { 220, 200, 200, 30 }, "Voltar ao Mapa" };
-static const Botao botaoVoltarDeck = {
-    { 140, 326, 140, 28 }, "Voltar"
-};
 
-static const Botao botaoConfirmarDeck = {
-    { 360, 326, 140, 28 }, "Confirmar Deck"
-};
-static const Botao botaoConcluirTutorial = {
-    { 220, 200, 200, 30 }, "Concluir Tutorial"
-};
 /* area_da_tela: calcula onde a tela virtual aparece dentro da janela. Usa
  * escala inteira (2x, 3x...) para todos os pixels terem o mesmo tamanho;
  * o espaço que sobra vira borda preta. Retorna o retângulo de destino. */
@@ -63,39 +56,71 @@ static void gravar_saves(const Jogo *jogo)
 }
 
 /* iniciar_partida: cria a partida da fase pedida (FASE_TUTORIAL para o
- * tutorial) e vai para a tela de jogo. Se faltar memória, fica onde está. */
+ * tutorial) com o deck escolhido, toca o som de início e vai para a tela de
+ * jogo. Se faltar memória, fica onde está. */
 static void iniciar_partida(Jogo *jogo, int fase)
 {
-    jogo->partida = partida_criar(fase);
-    if (jogo->partida != NULL) jogo->estado = ESTADO_JOGANDO;
+    jogo->partida = partida_criar(fase, jogo->deck.escolhidos);
+    if (jogo->partida == NULL) return;
+    som_tocar(SOM_INICIAR);
+    jogo->estado = ESTADO_JOGANDO;
 }
 
-/* encerrar_partida: soma o tempo jogado ao save atual e, se 'venceu', marca
- * a fase como concluída e libera a próxima; grava o arquivo, destrói a
- * partida e volta para o mapa de fases (ou para o menu, se era o tutorial). */
-static void encerrar_partida(Jogo *jogo, bool venceu){
-
-    Partida *partida = jogo->partida;
-    if (partida == NULL){ 
+/* abrir_fase: as fases passam antes pela escolha do deck; o tutorial, que
+ * tem deck fixo, e a fase do chefão, que usa a esteira, começam direto. */
+static void abrir_fase(Jogo *jogo, int fase)
+{
+    if (fase == FASE_TUTORIAL || fase == FASE_CHEFAO) {
+        iniciar_partida(jogo, fase);
         return;
     }
-    int bonusFase = 100 * partida->fase;
-    int bonusTempo = 1000 - (int)partida->tempoJogado;
-    if(bonusTempo < 0){
-        bonusTempo = 0;
-    }
+    deck_iniciar(&jogo->deck, fase);
+    jogo->estado = ESTADO_DECK;
+}
+
+/* atualizar_deck: na escolha do deck, começa a fase ou volta ao mapa. */
+static void atualizar_deck(Jogo *jogo)
+{
+    AcaoDeck acao = deck_atualizar(&jogo->deck, jogo->mouse);
+    if (acao == DECK_COMECAR)     iniciar_partida(jogo, jogo->deck.fase);
+    else if (acao == DECK_VOLTAR) jogo->estado = ESTADO_FASES;
+}
+
+/* lugar_no_ranking: lugar (0 a 9) que a partida terminada ocupa no Top 10,
+ * ou -1 se ela não entra (só as vitórias nas fases entram, o tutorial não). */
+static int lugar_no_ranking(const Jogo *jogo)
+{
+    const Partida *partida = jogo->partida;
+    if (partida->resultado != PARTIDA_VITORIA || partida_eh_tutorial(partida)) return -1;
+    return ranking_posicao(&jogo->ranking, partida_pontuacao(partida).total);
+}
+
+/* encerrar_partida: soma o tempo jogado ao save atual e, se a partida foi
+ * vencida, marca a fase como concluída, libera a próxima e guarda os pontos
+ * se forem o recorde da fase; grava o arquivo. Se a vitória entrar no Top
+ * 10, põe no ranking com o nome digitado e grava o ranking. Por fim, destrói
+ * a partida e volta para o mapa de fases (ou para o menu, se era o
+ * tutorial). */
+static void encerrar_partida(Jogo *jogo)
+{
+    Partida *partida = jogo->partida;
+    if (partida == NULL) return;
+
     bool tutorial = partida_eh_tutorial(partida);
+    Pontuacao pontos = partida_pontuacao(partida);
     if (!tutorial && jogo->saveAtual >= 0) {
         Save *save = &jogo->saves[jogo->saveAtual];
         save->tempoJogado += partida->tempoJogado;
-        if (venceu){
-            
+        if (partida->resultado == PARTIDA_VITORIA) {
             save->faseConcluida[partida->fase - 1] = true;
-            save->pontuacao += partida->pontosGatos + bonusFase + bonusTempo;
-
             if (partida->fase < TOTAL_FASES && save->faseLiberada <= partida->fase) save->faseLiberada = partida->fase + 1;
+            save_registrar_pontos(save, partida->fase, pontos.total);
         }
         gravar_saves(jogo);
+    }
+    if (lugar_no_ranking(jogo) >= 0) {
+        ranking_inserir(&jogo->ranking, jogo->nome, partida->fase, pontos.total, partida->tempoJogado);
+        if (!ranking_gravar(&jogo->ranking)) fprintf(stderr, "Aviso: não foi possível gravar %s\n", ARQUIVO_RECORDES);
     }
 
     partida_destruir(partida);
@@ -103,17 +128,26 @@ static void encerrar_partida(Jogo *jogo, bool venceu){
     jogo->estado = tutorial ? ESTADO_MENU : ESTADO_FASES;
 }
 
-/* atualizar_menu: troca de tela conforme o botão clicado no menu. */
+/* atualizar_menu: troca de tela conforme o botão clicado no menu e trata
+ * os deslizadores de volume da música e dos efeitos (ao soltar o dos
+ * efeitos, toca um som para o jogador ouvir o volume novo). */
 static void atualizar_menu(Jogo *jogo)
 {
+    float musica = jogo->audio.volume, efeitos = som_volume();
+    if (ui_deslizador_atualizar(DESLIZADOR_MUSICA, &musica, jogo->mouse)) audio_definir_volume(&jogo->audio, musica);
+    if (ui_deslizador_atualizar(DESLIZADOR_EFEITOS, &efeitos, jogo->mouse)) som_definir_volume(efeitos);
+    Rectangle folgaEfeitos = { DESLIZADOR_EFEITOS.x - 6, DESLIZADOR_EFEITOS.y - 6, DESLIZADOR_EFEITOS.width + 12, 18 };
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(jogo->mouse, folgaEfeitos)) som_tocar(SOM_PETISCO);
+
     if (ui_botao_clicado(&botoesMenu[BOTAO_JOGAR], jogo->mouse))      jogo->estado = ESTADO_SAVES;
     if (ui_botao_clicado(&botoesMenu[BOTAO_TUTORIAL], jogo->mouse))   iniciar_partida(jogo, FASE_TUTORIAL);
     if (ui_botao_clicado(&botoesMenu[BOTAO_INSTRUCOES], jogo->mouse)) jogo->estado = ESTADO_INSTRUCOES;
+    if (ui_botao_clicado(&botoesMenu[BOTAO_RANKING], jogo->mouse))    jogo->estado = ESTADO_RANKING;
     if (ui_botao_clicado(&botoesMenu[BOTAO_SAIR], jogo->mouse))       jogo->estado = ESTADO_SAIR;
 }
 
-/* desenhar_menu: cenário, título balançando, subtítulo, botões, versão e o
- * estado da música (tecla M). */
+/* desenhar_menu: cenário, título balançando, subtítulo, botões, versão e,
+ * no canto, os deslizadores de volume (ou "Sem áudio"). */
 static void desenhar_menu(const Jogo *jogo)
 {
     cenario_desenhar_menu(jogo->tempo);
@@ -123,8 +157,12 @@ static void desenhar_menu(const Jogo *jogo)
     for (int i = 0; i < TOTAL_BOTOES_MENU; i++) ui_desenhar_botao(&botoesMenu[i], jogo->mouse);
     ui_texto(VERSAO_JOGO, 6, ALTURA_VIRTUAL - 14, FONTE_PEQUENA, COR_TEXTO);
 
-    const char *som = !jogo->audio.pronto ? "Sem áudio" : (jogo->audio.mudo ? "M: ligar música" : "M: desligar música");
-    ui_texto(som, LARGURA_VIRTUAL - 6 - MeasureText(som, FONTE_PEQUENA), ALTURA_VIRTUAL - 14, FONTE_PEQUENA, COR_TEXTO);
+    if (!jogo->audio.pronto) {
+        ui_texto("Sem áudio", LARGURA_VIRTUAL - 6 - MeasureText("Sem áudio", FONTE_PEQUENA), ALTURA_VIRTUAL - 14, FONTE_PEQUENA, COR_TEXTO);
+        return;
+    }
+    ui_desenhar_deslizador(DESLIZADOR_MUSICA, jogo->audio.mudo ? 0.0f : jogo->audio.volume, jogo->audio.mudo ? "Mudo (M)" : "Música");
+    ui_desenhar_deslizador(DESLIZADOR_EFEITOS, som_volume(), "Efeitos");
 }
 
 /* retangulo_save: área do cartão do save i. */
@@ -223,94 +261,9 @@ static Vector2 posicao_fase(int f)
 {
     return (Vector2){ 80.0f + f * 120.0f, 170 };
 }
-static Rectangle retangulo_raca(int indice){
-    int coluna = indice % 5;
-    int linha = indice / 5;
 
-    return (Rectangle){
-        34 + coluna * 116,
-        94 + linha * 108,
-        108,
-        94
-    };
-}
-static void desenhar_carta_raca(const Jogo  *jogo,int indice){
-    TipoCachorro tipo = (TipoCachorro)(indice + 1);
-    const InfoCachorro *info = cachorro_info(tipo);
-    Rectangle area = retangulo_raca(indice);
-    bool selecionada = false;
-
-    for (int i = 0; i < jogo->totalSelecionados; i++) {
-        if (jogo->deckEscolhido[i] == tipo) {
-            selecionada = true;
-            break;
-    }
-}
-    ui_desenhar_painel(area);
-    if (selecionada) {
-        DrawRectangleLinesEx(area, 3, COR_INFECTADO);
-    }
-
-    cachorro_desenhar(tipo,
-                     (Vector2){area.x + area.width / 2, area.y + 30},
-                     17, 0, WHITE);
-
-    ui_texto_centro(info->nome, area.x + area.width / 2,
-                    area.y + 56, FONTE_PEQUENA, COR_TEXTO);
-
-    ui_texto_centro(TextFormat("%d petiscos", info->custo),
-                    area.x + area.width / 2,
-                    area.y + 76, FONTE_PEQUENA, COR_PETISCO);
-}
-static void selecionar_raca(Jogo *jogo, int indice){
-    TipoCachorro tipo = (TipoCachorro)(indice + 1);
-
-    for (int i = 0; i < jogo->totalSelecionados; i++) {
-        if (jogo->deckEscolhido[i] == tipo) {
-            for (int j = i; j < jogo->totalSelecionados - 1; j++) {
-                jogo->deckEscolhido[j] = jogo->deckEscolhido[j + 1];
-            }
-
-            jogo->totalSelecionados--;
-            return;
-        }
-    }
-
-    if (jogo->totalSelecionados < MAX_CARTAS - 1) {
-        jogo->deckEscolhido[jogo->totalSelecionados] = tipo;
-        jogo->totalSelecionados++;
-    }
-}
-static void atualizar_selecao_deck(Jogo *jogo){
-    if (IsKeyPressed(KEY_ESCAPE)) {
-        jogo->estado = ESTADO_FASES;
-        return;
-    }
-    if (ui_botao_clicado(&botaoVoltarDeck, jogo->mouse)){
-    jogo->estado = ESTADO_FASES;
-    return;
-    }  
-    if (ui_botao_clicado(&botaoConfirmarDeck, jogo->mouse)){
-        if (jogo->totalSelecionados == MAX_CARTAS - 1){
-            iniciar_partida(jogo, jogo->fasePendente);
-
-            if (jogo->partida != NULL){
-                partida_configurar_deck(jogo->partida, jogo->deckEscolhido);
-            }
-        }
-        return;
-    }
-    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return;
-
-    for (int i = 0; i < TOTAL_TIPOS_CACHORRO - 1; i++) {
-        if (CheckCollisionPointRec(jogo->mouse, retangulo_raca(i))) {
-            selecionar_raca(jogo, i);
-            return;
-        }
-    }
-}
 /* atualizar_fases: Voltar/ESC retorna aos saves; clicar numa fase liberada
- * começa a seleção do deck. */
+ * abre a escolha do deck dela. */
 static void atualizar_fases(Jogo *jogo)
 {
     if (ui_botao_clicado(&botaoVoltar, jogo->mouse) || IsKeyPressed(KEY_ESCAPE)) {
@@ -321,9 +274,8 @@ static void atualizar_fases(Jogo *jogo)
 
     for (int f = 0; f < jogo->saves[jogo->saveAtual].faseLiberada; f++) {
         if (CheckCollisionPointCircle(jogo->mouse, posicao_fase(f), RAIO_FASE)) {
-            jogo->fasePendente = f + 1;
-            jogo->totalSelecionados = 0;
-            jogo->estado = ESTADO_SELECAO_DECK;
+            som_tocar(SOM_CLIQUE);
+            abrir_fase(jogo, f + 1);
             return;
         }
     }
@@ -357,7 +309,18 @@ static void desenhar_fases(const Jogo *jogo)
 
     ui_texto_centro(TextFormat("Pontos: %d    Tempo de jogo: %s", s->pontuacao, texto_tempo(s->tempoJogado)),
                     LARGURA_VIRTUAL / 2, 256, FONTE_PEQUENA, COR_TEXTO);
-    ui_texto_centro("(Teste: F9 vence a fase, TAB troca o deck, ] dá +100 petiscos)", LARGURA_VIRTUAL / 2, 276, FONTE_PEQUENA, COR_BLOQUEADO);
+    ui_texto_centro("(Teste: \\ vence a fase, ] dá +100 petiscos)", LARGURA_VIRTUAL / 2, 276, FONTE_PEQUENA, COR_BLOQUEADO);
+    ui_desenhar_botao(&botaoVoltar, jogo->mouse);
+}
+
+/* desenhar_ranking: painel com o Top 10 (lugar, nome, fase, pontos e
+ * tempo de cada recorde) e o botão Voltar. */
+static void desenhar_ranking(const Jogo *jogo)
+{
+    cenario_desenhar_menu(jogo->tempo);
+    ui_desenhar_painel((Rectangle){ 100, 30, 440, 264 });
+    ui_texto_centro("Top 10 - Melhores Vitórias", LARGURA_VIRTUAL / 2, 44, FONTE_MEDIA, COR_INFECTADO);
+    ranking_desenhar(&jogo->ranking, (Rectangle){ 145, 76, 350, 210 });
     ui_desenhar_botao(&botaoVoltar, jogo->mouse);
 }
 
@@ -367,11 +330,15 @@ static void desenhar_instrucoes(const Jogo *jogo)
     static const char *linhas[] = {
         "Os Gatos Zumbis avançam pela direita rumo à sua casa. Defenda-a!",
         "",
+        "- Antes de cada fase, escolha 5 cachorros para o seu deck.",
         "- Clique em uma carta (ou teclas 1 a 6) e depois em um espaço do campo.",
         "- Cada cachorro custa petiscos (ossos). Você começa com 200.",
         "- O Pote de Ração gera petiscos. Clique nos ossos para coletá-los.",
         "- A pá (tecla S) remove um cachorro. O botão direito cancela.",
-        "- Sobreviva às 4 hordas de cada fase. Na 5ª fase, enfrente o chefão!",
+        "- A luva (tecla L) muda um cachorro de lugar: só 2 vezes por fase.",
+        "- O botão 2x (tecla V) acelera o jogo.",
+        "- Sobreviva às 4 hordas de cada fase. Na 5ª fase, enfrente o chefão:",
+        "  os cachorros chegam de graça pela esteira, à esquerda.",
         "- Se um gato chegar à casa, você perde a fase.",
         "",
         "ESC: pausar     M: música     F11: tela cheia",
@@ -381,101 +348,132 @@ static void desenhar_instrucoes(const Jogo *jogo)
     ui_desenhar_painel((Rectangle){ 50, 30, 540, 264 });
     ui_texto_centro("Como Jogar", LARGURA_VIRTUAL / 2, 44, FONTE_MEDIA, COR_INFECTADO);
     for (int i = 0; i < (int)(sizeof(linhas) / sizeof(linhas[0])); i++) {
-        ui_texto(linhas[i], 70, 84 + i * 18, FONTE_PEQUENA, COR_TEXTO);
+        ui_texto(linhas[i], 70, 72 + i * 16, FONTE_PEQUENA, COR_TEXTO);
     }
     ui_desenhar_botao(&botaoVoltar, jogo->mouse);
 }
 
-/* atualizar_jogando: ESC/P pausa; F9 vence a fase na hora (atalho de teste
- * até as hordas existirem); senão atualiza a partida, com o tempo do frame
- * limitado a 0,1 s para evitar "saltos" se o jogo travar um instante. Se um
- * gato invadiu a casa, vai para a tela de fim de partida. */
-static void atualizar_jogando(Jogo *jogo)
+/* tem_proxima_fase: true se, depois desta partida, o 1º botão leva para a
+ * fase seguinte (vitória numa fase que não é a última nem o tutorial). */
+static bool tem_proxima_fase(const Partida *partida)
 {
-    if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) {
-        jogo->estado = ESTADO_PAUSA;
-    } else if (IsKeyPressed(KEY_F9) && !partida_eh_tutorial(jogo->partida)) {
-        encerrar_partida(jogo, true);
-    } else {
-        partida_atualizar(jogo->partida, jogo->mouse, fminf(GetFrameTime(), 0.1f));
-        if (jogo->partida->derrota || jogo->partida->vitoria) jogo->estado = ESTADO_FIM_PARTIDA;
-    }
+    return partida->resultado == PARTIDA_VITORIA && !partida_eh_tutorial(partida) && partida->fase < TOTAL_FASES;
 }
 
-/* atualizar_fim_partida: "Tentar de novo" encerra a partida (guardando o
- * tempo no save) e começa outra da mesma fase; "Sair da Partida" só encerra. */
+/* botao_fim_partida: monta o 1º botão da tela de fim de partida: "Próxima
+ * Fase", "Jogar de Novo" (vitória na última fase ou no tutorial) ou "Tentar
+ * de Novo" (derrota). */
+static Botao botao_fim_partida(const Partida *partida)
+{
+    const char *texto = tem_proxima_fase(partida) ? "Próxima Fase" : "Tentar de Novo";
+    if (partida->resultado == PARTIDA_VITORIA && !tem_proxima_fase(partida)) texto = "Jogar de Novo";
+    return (Botao){ { 220, 250, 200, 30 }, texto };
+}
+
+/* botao_voltar_fim: o 2º botão da tela de fim de partida, que volta ao mapa
+ * de fases (ou ao menu, se era o tutorial). */
+static Botao botao_voltar_fim(const Partida *partida)
+{
+    return (Botao){ { 220, 288, 200, 30 }, partida_eh_tutorial(partida) ? "Voltar ao Menu" : "Voltar ao Mapa" };
+}
+
+/* digitar_nome: lê as letras digitadas (caracteres comuns, até
+ * TAMANHO_NOME) e o Backspace, que apaga a última. */
+static void digitar_nome(Jogo *jogo)
+{
+    int tamanho = (int)strlen(jogo->nome);
+    for (int c = GetCharPressed(); c != 0; c = GetCharPressed()) {
+        if (c < 32 || c > 126 || tamanho >= TAMANHO_NOME) continue;
+        jogo->nome[tamanho++] = (char)c;
+        jogo->nome[tamanho] = '\0';
+    }
+    if (IsKeyPressed(KEY_BACKSPACE) && tamanho > 0) jogo->nome[tamanho - 1] = '\0';
+}
+
+/* atualizar_fim_partida: na tela de vitória/derrota, se a vitória entrar no
+ * Top 10, o jogador digita o nome. O 1º botão encerra a partida (salvando o
+ * resultado e o recorde) e abre a próxima fase (ou a mesma de novo),
+ * passando pela escolha do deck; o 2º só encerra. */
 static void atualizar_fim_partida(Jogo *jogo)
 {
-    int fase = jogo->partida->fase;
-    if (partida_eh_tutorial(jogo->partida) && jogo->partida->vitoria){
-        if (ui_botao_clicado(&botaoConcluirTutorial, jogo->mouse)){
-            encerrar_partida(jogo, true);
-        }
-    return;
-    }
-    if (jogo->partida->vitoria) {
-        if (fase < TOTAL_FASES && ui_botao_clicado(&botaoProximaFase, jogo->mouse)) {
-            encerrar_partida(jogo, true);
-            jogo->fasePendente = fase + 1;
-            jogo->totalSelecionados = 0;
-            jogo->estado = ESTADO_SELECAO_DECK;
-        } else if (ui_botao_clicado(&botaoVoltarMapa, jogo->mouse)) {
-            encerrar_partida(jogo, true);
-        }
-        return;
-    }
-    if (ui_botao_clicado(&botaoTentarDeNovo, jogo->mouse)) {
-        encerrar_partida(jogo, false);
-        jogo->fasePendente = fase;
-        jogo->totalSelecionados = 0;
-        jogo->estado = ESTADO_SELECAO_DECK;
-    } else if (ui_botao_clicado(&botaoSairPartida, jogo->mouse)) {
-        encerrar_partida(jogo, false);
+    Botao principal = botao_fim_partida(jogo->partida);
+    Botao voltar = botao_voltar_fim(jogo->partida);
+    int fase = tem_proxima_fase(jogo->partida) ? jogo->partida->fase + 1 : jogo->partida->fase;
+
+    if (lugar_no_ranking(jogo) >= 0) digitar_nome(jogo);
+
+    if (ui_botao_clicado(&principal, jogo->mouse)) {
+        encerrar_partida(jogo);
+        abrir_fase(jogo, fase);
+    } else if (ui_botao_clicado(&voltar, jogo->mouse)) {
+        encerrar_partida(jogo);
     }
 }
 
-/* desenhar_fim_partida: a partida congelada e escurecida ao fundo, desenhada
- * com o mouse "fora da tela" para nada no fundo reagir a ele, com a mensagem
- * de derrota, o tempo, os gatos derrotados e os botões por cima. */
-static void desenhar_fim_partida(const Jogo *jogo){
+/* atualizar_jogando: com o resultado decidido, trata a tela de vitória ou
+ * derrota. Senão: ESC/P pausa; ou atualiza a partida, com o tempo do frame
+ * limitado a 0,1 s para evitar "saltos" se o jogo travar um instante. */
+static void atualizar_jogando(Jogo *jogo)
+{
+    if (jogo->partida->resultado != PARTIDA_EM_ANDAMENTO) atualizar_fim_partida(jogo);
+    else if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) jogo->estado = ESTADO_PAUSA;
+    else partida_atualizar(jogo->partida, jogo->mouse, fminf(GetFrameTime(), 0.1f));
+}
 
-    const Partida *p = jogo->partida;
-    int pontosTotais = p->pontosGatos;
+/* desenhar_linha_pontos: uma linha da conta de pontos: o texto à esquerda
+ * e o valor ("+N") alinhado à direita. */
+static void desenhar_linha_pontos(const char *texto, int valor, int y)
+{
+    const char *numero = TextFormat("+%d", valor);
+    ui_texto(texto, 200, y, FONTE_PEQUENA, COR_TEXTO);
+    ui_texto(numero, 440 - MeasureText(numero, FONTE_PEQUENA), y, FONTE_PEQUENA, COR_TEXTO);
+}
 
-    if(p->vitoria){
-        int bonusFase = 100 * p->fase;
-        int bonusTempo = 1000 - (int)p->tempoJogado;
+/* desenhar_resultado: abaixo do título, a conta de pontos da partida: gatos
+ * derrotados, bônus de vitória e de tempo e o total. Se a vitória entrar no
+ * Top 10, mostra o lugar e a caixa com o nome sendo digitado (com um cursor
+ * piscando). */
+static void desenhar_resultado(const Jogo *jogo)
+{
+    const Partida *partida = jogo->partida;
+    Pontuacao p = partida_pontuacao(partida);
+    int lugar = lugar_no_ranking(jogo);
 
-        if (bonusTempo < 0){
-            bonusTempo = 0;
-        }
+    desenhar_linha_pontos(TextFormat("Gatos derrotados: %d", p.gatos), p.pontosGatos, 112);
+    desenhar_linha_pontos("Bônus de vitória", p.vitoria, 128);
+    desenhar_linha_pontos("Bônus de tempo", p.tempo, 144);
+    ui_texto_centro(TextFormat("TOTAL: %d pontos", p.total), LARGURA_VIRTUAL / 2, 164, FONTE_MEDIA, COR_PETISCO);
+    if (lugar < 0) return;
 
-    pontosTotais += bonusFase + bonusTempo;
+    Rectangle caixa = { 240, 212, 160, 20 };
+    bool cursor = fmodf(jogo->tempo, 1.0f) < 0.5f;
+    ui_texto_centro(TextFormat("Novo recorde: %dº lugar no Top 10! Digite seu nome:", lugar + 1), LARGURA_VIRTUAL / 2, 194, FONTE_PEQUENA, COR_INFECTADO);
+    DrawRectangleRec(caixa, Fade(BLACK, 0.8f));
+    DrawRectangleLinesEx(caixa, 1, COR_INFECTADO);
+    ui_texto_centro(TextFormat("%s%s", jogo->nome, cursor ? "_" : " "), LARGURA_VIRTUAL / 2, caixa.y + 5, FONTE_PEQUENA, COR_TEXTO);
+}
 
-    }
-    partida_desenhar(p, (Vector2){ -100, -100 });
-    DrawRectangle(0, 0, LARGURA_VIRTUAL, ALTURA_VIRTUAL, Fade(BLACK, 0.65f));
+/* desenhar_jogando: desenha a partida; com o resultado decidido, escurece a
+ * tela e mostra por cima o título (vitória em verde, derrota em vermelho),
+ * o tempo da partida, a conta de pontos (fora do tutorial) e os dois botões. */
+static void desenhar_jogando(const Jogo *jogo)
+{
+    const Partida *partida = jogo->partida;
+    partida_desenhar(partida, jogo->mouse);
+    if (partida->resultado == PARTIDA_EM_ANDAMENTO) return;
 
-    if (partida_eh_tutorial(p) && p->vitoria){
-        ui_texto_centro("TUTORIAL CONCLUIDO!", LARGURA_VIRTUAL / 2, 90, FONTE_GRANDE, COR_INFECTADO);
+    bool venceu = (partida->resultado == PARTIDA_VITORIA);
+    const char *titulo = !venceu ? "A CASA FOI INVADIDA!" : (partida_eh_tutorial(partida) ? "TUTORIAL CONCLUÍDO!" : "FASE CONCLUÍDA!");
+    if (venceu && partida->chefao != NULL) titulo = "O REI FOI DERROTADO!";
+    Botao principal = botao_fim_partida(partida);
+    Botao voltar = botao_voltar_fim(partida);
 
-        ui_texto_centro("Voce derrotou o gato zumbi!", LARGURA_VIRTUAL / 2, 148, FONTE_MEDIA, COR_TEXTO);
-
-        ui_desenhar_botao(&botaoConcluirTutorial, jogo->mouse);
-        return;
-    }
-    ui_texto_centro(p->vitoria ? "FASE CONCLUÍDA!" : "A CASA FOI INVADIDA!", LARGURA_VIRTUAL / 2, 90, FONTE_GRANDE,
-                    p->vitoria ? COR_INFECTADO : COR_ALERTA);
-    ui_texto_centro(TextFormat("Tempo: %s    Gatos derrotados: %d", texto_tempo(p->tempoJogado), p->gatosDerrotados),
-                    LARGURA_VIRTUAL / 2, 136, FONTE_PEQUENA, COR_TEXTO);
-    ui_texto_centro(TextFormat("Pontos: %d", pontosTotais), LARGURA_VIRTUAL/2, 160, FONTE_PEQUENA, COR_TEXTO);
-    if (p->vitoria) {
-        if (p->fase < TOTAL_FASES) ui_desenhar_botao(&botaoProximaFase, jogo->mouse);
-        ui_desenhar_botao(&botaoVoltarMapa, jogo->mouse);
-        return;
-    }
-    ui_desenhar_botao(&botaoTentarDeNovo, jogo->mouse);
-    ui_desenhar_botao(&botaoSairPartida, jogo->mouse);
+    DrawRectangle(0, 0, LARGURA_VIRTUAL, ALTURA_VIRTUAL, Fade(BLACK, 0.6f));
+    ui_texto_centro(titulo, LARGURA_VIRTUAL / 2, 36, FONTE_GRANDE, venceu ? COR_INFECTADO : COR_ALERTA);
+    ui_texto_centro(TextFormat("Tempo: %s", texto_tempo(partida->tempoJogado)), LARGURA_VIRTUAL / 2, 84, FONTE_MEDIA, COR_TEXTO);
+    if (!partida_eh_tutorial(partida)) desenhar_resultado(jogo);
+    ui_desenhar_botao(&principal, jogo->mouse);
+    ui_desenhar_botao(&voltar, jogo->mouse);
 }
 
 /* desenhar_pausa: a partida congelada ao fundo, escurecida, com os botões
@@ -491,8 +489,8 @@ static void desenhar_pausa(const Jogo *jogo)
 
 /* jogo_criar: aloca o jogo com malloc, cria a tela virtual com filtro POINT
  * (ao ampliar, cada pixel vira um bloco, sem borrar), carrega os sprites, lê
- * os saves do arquivo e começa a música. Retorna o ponteiro, ou NULL se
- * faltar memória. */
+ * os saves do arquivo, começa a música e carrega os efeitos sonoros. Retorna
+ * o ponteiro, ou NULL se faltar memória. */
 Jogo *jogo_criar(void)
 {
     Jogo *jogo = malloc(sizeof(Jogo));
@@ -503,14 +501,16 @@ Jogo *jogo_criar(void)
     jogo->tempo = 0.0f;
     jogo->saveAtual = -1;
     jogo->saveParaApagar = -1;
-    jogo->totalSelecionados = 0;
-    jogo->fasePendente = 0;
+    jogo->deck = (EscolhaDeck){ 0 };
+    jogo->nome[0] = '\0';
     jogo->partida = NULL;
     jogo->tela = LoadRenderTexture(LARGURA_VIRTUAL, ALTURA_VIRTUAL);
     SetTextureFilter(jogo->tela.texture, TEXTURE_FILTER_POINT);
     sprite_carregar_todos();
     save_carregar_todos(jogo->saves);
+    ranking_carregar(&jogo->ranking);
     audio_iniciar(&jogo->audio);
+    som_carregar_todos();
     return jogo;
 }
 
@@ -532,19 +532,15 @@ void jogo_atualizar(Jogo *jogo)
         case ESTADO_MENU:    atualizar_menu(jogo);     break;
         case ESTADO_SAVES:   atualizar_saves(jogo);    break;
         case ESTADO_FASES:   atualizar_fases(jogo);    break;
-        case ESTADO_SELECAO_DECK:
-            atualizar_selecao_deck(jogo);
-            break;
+        case ESTADO_DECK:    atualizar_deck(jogo);     break;
         case ESTADO_JOGANDO: atualizar_jogando(jogo);  break;
         case ESTADO_INSTRUCOES:
+        case ESTADO_RANKING:
             if (ui_botao_clicado(&botaoVoltar, jogo->mouse) || IsKeyPressed(KEY_ESCAPE)) jogo->estado = ESTADO_MENU;
             break;
         case ESTADO_PAUSA:
             if (ui_botao_clicado(&botaoContinuar, jogo->mouse) || IsKeyPressed(KEY_ESCAPE)) jogo->estado = ESTADO_JOGANDO;
-            else if (ui_botao_clicado(&botaoSairPartida, jogo->mouse)) encerrar_partida(jogo, false);
-            break;
-        case ESTADO_FIM_PARTIDA:
-            atualizar_fim_partida(jogo);
+            else if (ui_botao_clicado(&botaoSairPartida, jogo->mouse)) encerrar_partida(jogo);
             break;
         case ESTADO_SAIR:
             break;
@@ -562,26 +558,11 @@ void jogo_desenhar(const Jogo *jogo)
         case ESTADO_MENU:       desenhar_menu(jogo);                          break;
         case ESTADO_SAVES:      desenhar_saves(jogo);                         break;
         case ESTADO_FASES:      desenhar_fases(jogo);                         break;
-        case ESTADO_SELECAO_DECK:
-            cenario_desenhar_menu(jogo->tempo);
-            ui_texto_centro("Selecao de Deck", LARGURA_VIRTUAL / 2, 24,
-            FONTE_MEDIA, COR_INFECTADO);
-            for (int i = 0; i < TOTAL_TIPOS_CACHORRO - 1; i++) {
-                desenhar_carta_raca(jogo, i);
-            }
-            ui_texto_centro(
-                TextFormat("Selecionados: %d/5", jogo->totalSelecionados),
-                LARGURA_VIRTUAL / 2,
-                310,
-                FONTE_PEQUENA,
-                COR_TEXTO);
-            ui_desenhar_botao(&botaoVoltarDeck, jogo->mouse);
-            ui_desenhar_botao(&botaoConfirmarDeck, jogo->mouse);    
-            break;
+        case ESTADO_DECK:       deck_desenhar(&jogo->deck, jogo->mouse, jogo->tempo); break;
         case ESTADO_INSTRUCOES: desenhar_instrucoes(jogo);                    break;
-        case ESTADO_JOGANDO:    partida_desenhar(jogo->partida, jogo->mouse); break;
+        case ESTADO_RANKING:    desenhar_ranking(jogo);                       break;
+        case ESTADO_JOGANDO:    desenhar_jogando(jogo);                       break;
         case ESTADO_PAUSA:      desenhar_pausa(jogo);                         break;
-        case ESTADO_FIM_PARTIDA: desenhar_fim_partida(jogo);                  break;
         case ESTADO_SAIR:                                                     break;
     }
     EndTextureMode();
@@ -593,12 +574,14 @@ void jogo_desenhar(const Jogo *jogo)
     EndDrawing();
 }
 
-/* jogo_destruir: se o jogo for fechado no meio de uma partida, salva o tempo
- * jogado; depois libera a música, os sprites, a tela virtual e o próprio jogo. */
+/* jogo_destruir: se o jogo for fechado durante uma partida, salva o tempo
+ * jogado (e a vitória, se já estava na tela de vitória); depois libera os
+ * efeitos sonoros, a música, os sprites, a tela virtual e o próprio jogo. */
 void jogo_destruir(Jogo *jogo)
 {
     if (jogo == NULL) return;
-    encerrar_partida(jogo, false);
+    encerrar_partida(jogo);
+    som_descarregar_todos();
     audio_finalizar(&jogo->audio);
     sprite_descarregar_todos();
     UnloadRenderTexture(jogo->tela);

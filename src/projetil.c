@@ -1,13 +1,75 @@
-/* projetil.c - Lista encadeada das bolinhas de tênis em voo. */
+/* projetil.c - Lista encadeada das babas em voo e o desenho de cada estilo. */
 
 #include "projetil.h"
-#include "config.h"
+#include "ui.h"
 
 #include <stdlib.h>
+#include <string.h>
 
-/* projetil_adicionar: aloca uma bolinha com malloc na posição de disparo e a
+/* Cada estilo de baba em pixel-art (matrizes de caracteres), voando para a direita. */
+static const char *GOTA[] = {
+    ".........####..",
+    ".......##aabb#.",
+    ".....##aaaaabb#",
+    "...##aaaaaaaab#",
+    "###aaaaaaaaaaa#",
+    "...##caaaaaaaa#",
+    ".....##ccaaaa#.",
+    ".......##cca#..",
+    ".........###...",
+};
+static const char *BOLHAS[] = {
+    ".......####..",
+    "......#abba#.",
+    "......#aaaa#.",
+    ".###..#caaa#.",
+    "#abb#..####..",
+    "#aaa#........",
+    ".###...###...",
+    "......#ab#...",
+    ".......##....",
+};
+static const char *CRISTAL[] = {
+    ".....#.....",
+    "....#b#....",
+    "...#bba#...",
+    "..#bbaac#..",
+    ".#baaaacc#.",
+    "#baaaaaccc#",
+    ".#aaaaacc#.",
+    "..#aaacc#..",
+    "...#acc#...",
+    "....#c#....",
+    ".....#.....",
+};
+static const char *JATO[] = {
+    "............####..",
+    "a..aa..#####aaab#.",
+    "..a..##aaaaaaaabb#",
+    ".a...##ccaaaaaaaa#",
+    "a..aa..#####ccaa#.",
+    "............####..",
+};
+static const char SIMBOLOS[] = "#abc";
+static const Color CORES_BABA[] = { {  70, 110, 130, 255 }, { 205, 235, 245, 255 }, { 255, 255, 255, 255 }, { 150, 195, 215, 255 } };
+static const Color CORES_GELO[] = { {  40,  90, 140, 255 }, { 170, 220, 255, 255 }, { 255, 255, 255, 255 }, { 110, 170, 230, 255 } };
+
+typedef struct DesenhoBaba {
+    const char **figura;
+    int          linhas;
+    const Color *cores;     // cores de '#' (contorno), 'a', 'b' (brilho) e 'c' (sombra)
+} DesenhoBaba;
+
+static const DesenhoBaba desenhos[TOTAL_ESTILOS_BABA] = {
+    [BABA_GOTA]   = { GOTA,    9, CORES_BABA },
+    [BABA_BOLHAS] = { BOLHAS,  9, CORES_BABA },
+    [BABA_GELADA] = { CRISTAL, 11, CORES_GELO },
+    [BABA_JATO]   = { JATO,    6, CORES_BABA },
+};
+
+/* projetil_adicionar: aloca uma baba com malloc na posição de disparo e a
  * insere no INÍCIO da lista. Retorna false se faltar memória. */
-bool projetil_adicionar(Projetil **lista, Vector2 posicao, int linha, int dano, bool gelada)
+bool projetil_adicionar(Projetil **lista, Vector2 posicao, int linha, int dano, EstiloBaba estilo)
 {
     Projetil *novo = malloc(sizeof(Projetil));
     if (novo == NULL) return false;
@@ -15,7 +77,7 @@ bool projetil_adicionar(Projetil **lista, Vector2 posicao, int linha, int dano, 
     novo->posicao = posicao;
     novo->linha = linha;
     novo->dano = dano;
-    novo->gelada = gelada;
+    novo->estilo = estilo;
     novo->proximo = *lista;
     *lista = novo;
     return true;
@@ -30,11 +92,14 @@ static void remover_no(Projetil **ligacao)
     free(removido);
 }
 
-/* projetil_atualizar_lista: move cada bolinha para a direita; se ela tocar
+/* projetil_atualizar_lista: move cada baba para a direita; se ela tocar
  * um gato da sua linha, causa o dano nele (e, se for gelada, o deixa lento).
- * Remove da lista as que acertaram e as que saíram da tela. */
-void projetil_atualizar_lista(Projetil **lista, Gato *gatos, float dt)
+ * Remove da lista as que acertaram e as que passaram de fimX (a borda da
+ * tela ou, na fase do chefão, a frente do Rei). Retorna a soma do dano das
+ * babas que chegaram a fimX sem acertar nenhum gato. */
+int projetil_atualizar_lista(Projetil **lista, Gato *gatos, float fimX, float dt)
 {
+    int danoNoFim = 0;
     Projetil **ligacao = lista;
     while (*ligacao != NULL) {
         Projetil *p = *ligacao;
@@ -42,20 +107,23 @@ void projetil_atualizar_lista(Projetil **lista, Gato *gatos, float dt)
 
         Gato *alvo = gato_atingido(gatos, p->linha, p->posicao.x);
         if (alvo != NULL) gato_ferir(alvo, p->dano);
-        if (alvo != NULL && p->gelada) gato_gelar(alvo);
+        if (alvo != NULL && p->estilo == BABA_GELADA) gato_gelar(alvo);
+        if (alvo == NULL && p->posicao.x > fimX) danoNoFim += p->dano;
 
-        if (alvo != NULL || p->posicao.x > LARGURA_VIRTUAL) remover_no(ligacao);
-        else                                                ligacao = &p->proximo;
+        if (alvo != NULL || p->posicao.x > fimX) remover_no(ligacao);
+        else                                     ligacao = &p->proximo;
     }
+    return danoNoFim;
 }
 
-/* projetil_desenhar_lista: desenha cada bolinha de tênis (amarelo-esverdeada,
- * ou azul-clara se for gelada) com contorno escuro. */
+/* projetil_desenhar_lista: desenha cada baba com a pixel-art do seu estilo
+ * (tabela de desenhos), centrada na posição dela. */
 void projetil_desenhar_lista(const Projetil *lista)
 {
     for (const Projetil *p = lista; p != NULL; p = p->proximo) {
-        DrawCircleV(p->posicao, 4, p->gelada ? (Color){ 170, 220, 255, 255 } : (Color){ 210, 232, 60, 255 });
-        DrawCircleLinesV(p->posicao, 4, p->gelada ? (Color){ 40, 90, 140, 255 } : (Color){ 90, 104, 20, 255 });
+        const DesenhoBaba *d = &desenhos[p->estilo];
+        Vector2 canto = { p->posicao.x - (int)strlen(d->figura[0]) / 2, p->posicao.y - d->linhas / 2 };
+        ui_desenhar_pixel_art(d->figura, d->linhas, canto, 1, SIMBOLOS, d->cores);
     }
 }
 
