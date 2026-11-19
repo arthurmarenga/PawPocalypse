@@ -14,6 +14,7 @@ Jogo de estratégia e defesa de pistas em pixel-art, inspirado no clássico esti
 4. [Onde está cada requisito do trabalho](#4-onde-está-cada-requisito-do-trabalho)
 5. [Mapa do código](#5-mapa-do-código)
 6. [Teclas de atalho e teste](#6-teclas-de-atalho-e-teste)
+7. 7. [Vídeo demonstrativo](#7-video-de-demonstração-do-jogo)
 
 ---
 
@@ -90,7 +91,7 @@ Os Gatos Zumbis invadem a área pela borda direita do mapa, linha por linha, ava
 |---|---|
 | **Tutorial** | Modo guiado interativo que ensina passo a passo: coletar petiscos do céu, posicionar o Pote de Ração, colocar um Beagle atirador, usar a pá para limpar uma casa e combater o primeiro zumbi invasor. |
 | **Fases 1 a 4** | Quatro fases sequenciais de sobrevivência por ondas, cada uma composta por **4 hordas** (1 inicial mais leve, 2 intermediárias e 1 horda final com grande concentração de inimigos). Antes de cada horda surgir, um alerta visual na tela avisa a chegada dos zumbis. |
-| **Fase 5 (Chefão)** | Batalha contra o formidável **Gato Chefão** (5000 de vida e dano massivo de 150). O chefão se movimenta verticalmente trocando de linha no campo, invoca outros gatos zumbis auxiliares e ataca a distância lançando bolas de pelo. Nesta fase, as tropas caninas são obtidas sem custo através da mecânica de esteira rolante. |
+| **Fase 5 (Chefão)** | Batalha contra o formidável **Gato Chefão** (5000 de vida e dano massivo de 150). O chefão troca de linha, invoca outros gatos zumbis e realiza ataques periódicos à distância, causando dano aos cachorros posicionados na linha em que está.|
 
 ### Sistema de Saves
 
@@ -220,3 +221,6 @@ Módulos utilitários compartilhados:
 ### Teclas de Desenvolvimento e Teste
 Para facilitar a demonstração pedagógica e testes rápidos das fases, foram incluídos atalhos de depuração:
 - **F9 (durante a partida):** Conclui e vence instantaneamente a fase atual (não se aplica ao tutorial), liberando a fase seguinte e computando os bônus correspondentes no save em uso.
+
+## 7. Video de demonstração do jogo
+[Gameplay](https://youtu.be/4E5DysHAkSI)
