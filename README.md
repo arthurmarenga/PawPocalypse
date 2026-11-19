@@ -26,7 +26,7 @@ Para compilar e executar o projeto, é necessário ter instalado um compilador C
 | Sistema Operacional | Método de Instalação Recomendado |
 |---|---|
 | **Windows** | Instale o MinGW-w64 e a raylib (geralmente em `C:/raylib/raylib/src`). O `Makefile` já inclui os links para `-lraylib -lopengl32 -lgdi32 -lwinmm`. Caso sua raylib esteja em outro diretório, ajuste a variável `RAYLIB_PATH` no `Makefile`. |
-| **Linux (Debian / Ubuntu / Mint)** | Execute no terminal: <br>`sudo apt update && sudo apt install libraylib-dev` <br>*(ou compile e instale a raylib a partir do código-fonte oficial)*. |
+| **Linux (Ubuntu / Debian)** | Requer a **raylib 6.0**, GCC e Make. Caso a raylib não esteja disponível nos repositórios da distribuição, compile a versão 6.0 a partir do [código-fonte oficial](https://github.com/raysan5/raylib). A compilação e a execução foram testadas no Ubuntu 26.04.1 com WSL 2. |
 | **macOS** | Utilize o Homebrew: <br>`brew install raylib` <br>*(o `Makefile` detecta automaticamente o prefixo do Homebrew em `/opt/homebrew` ou `/usr/local`)*. |
 
 ### Comandos de compilação (na pasta do projeto)
@@ -112,31 +112,39 @@ O jogo conta com **3 slots independentes de gravação** (`assets/data/saves.txt
 | **Gato da Caixa** | 560 | 8 px/s | 100 | 15 pts | Protegido por caixa de papelão, absorve mais dano antes de expor a vida básica. |
 | **Gato da Lata** | 1300 | 8 px/s | 100 | 30 pts | Armadura metálica de alta resistência, exigindo dano concentrado. |
 | **Gato Siamês** | 180 | 16 px/s | 100 | 25 pts | Muito veloz (dobro da velocidade comum), surpreende defesas desprevenidas. |
-| **Gato Persa** | 450 | 7 px/s | 100 | 30 pts | Pelagem espessa que o torna **100% imune a projéteis de gelo** do Husky. |
+| **Gato Persa** | 450 | 7 px/s | 100 | 30 pts | Imune ao efeito de lentidão provocado pelo gelo do Husky, mas ainda recebe o dano dos projéteis. |
 | **Gato de Telhado** | 250 | 9 px/s | 100 | 25 pts | Salta acrobaticamente por cima do 1º cachorro que encontrar (exceto se for o Bulldog). |
 | **Maine Coon** | 3000 | 5 px/s | 300 | 50 pts | Tanque colossal, absorve imensa quantidade de disparos e causa 300 de dano por mordida. |
 | **Gato Chefão** | 5000 | — | 150 | 200 pts | O líder supremo felino da Fase 5: troca de faixas, invoca reforços e ataca com bolas de pelo. |
 
 
+
 ## 4. Onde está cada requisito do trabalho
 
-O projeto foi estruturado integralmente para atender com rigor pedagógico aos requisitos de programação imperativa em C99:
+O projeto foi desenvolvido em C99, utilizando os conceitos obrigatórios de programação exigidos pela disciplina, além de funcionalidades complementares.
 
-| Requisito do Trabalho | Implementação e Localização no Código |
+### Requisitos obrigatórios de programação
+
+| Requisito | Implementação e Localização no Código |
 |---|---|
-| **Structs (Registros)** | Amplamente utilizadas para abstração de dados: `Jogo` (`include/game.h`), `Partida`, `Carta`, `Efeito`, `Esteira` (`include/partida.h`), `Mapa`, `Celula` (`include/map.h`), `Cachorro`, `InfoCachorro` (`include/tower.h`), `Gato`, `InfoGato` (`include/enemy.h`), `Projetil` (`include/projetil.h`), `Petisco` (`include/petisco.h`), `Horda` (`include/horda.h`), `Save` (`include/save.h`), `Audio` (`include/audio.h`) e `Botao` (`include/ui.h`). |
-| **Ponteiros e Matriz de Ponteiros** | A grade do campo de batalha é implementada como uma matriz bidimensional de ponteiros de cachorros: `Cachorro *grade[LINHAS_MAPA][COLUNAS_MAPA]` em `include/map.h`. Manipulação de listas via ponteiros duplos (`Gato **lista`, `Projetil **lista`, `Petisco **lista`) para inserção e remoção eficiente nos módulos `enemy.c`, `projetil.c` e `petisco.c`. |
-| **Ponteiros de Função** | Tabela de despacho polimórfico `habilidades[TOTAL_TIPOS_CACHORRO]` em `src/habilidade.c`. O loop de jogo invoca o comportamento de cada raça dinamicamente chamando a função atribuída através do ponteiro de função correspondente. |
-| **Alocação Dinâmica (`malloc` e `free`)** | Gerenciamento manual e seguro da memória heap: ciclo de vida do jogo (`jogo_criar` / `jogo_destruir`), partidas (`partida_criar` / `partida_destruir`), instâncias de cachorros (`cachorro_criar` / `cachorro_destruir`), nós de listas encadeadas (`gato_adicionar`, `projetil_adicionar`, `petisco_adicionar` e suas respectivas rotinas de liberação). Geração dinâmica de amostras de áudio em buffer alocado na memória em `audio.c`. |
-| **Listas Encadeadas Dinâmicas** | Três sistemas vitais gerenciados por listas simplesmente encadeadas com nós alocados dinamicamente: gatos em trânsito no campo (`Gato*` em `enemy.c`), projéteis voando pela tela (`Projetil*` em `projetil.c`) e petiscos flutuando na tela (`Petisco*` em `petisco.c`). |
-| **Matrizes Bidimensionais** | Grade do mapa de pistas 4x8 (`Mapa.grade`), tabela multidimensional de composição de hordas `composicao[TOTAL_FASES][HORDAS_POR_FASE][TOTAL_TIPOS_GATO]` em `src/horda.c`, matriz de notas e acordes sintetizados em `src/audio.c`, e matrizes literais de pixels de caracteres para desenho de ícones em `petisco.c` e `projetil.c`. |
-| **Entrada e Saída em Arquivos (`FILE*`)** | Persistência do progresso em `assets/data/saves.txt` através das funções padrão `fopen`, `fgets`, `sscanf`, `fprintf` e `fclose` encapsuladas no módulo `src/save.c`. |
-| **Compilação Automatizada com Makefile** | `Makefile` robusto e multiplataforma com regras de compilação condicional para Windows, Linux e macOS (`make`, `make run`, `make clean`), separação em diretório de objetos `build/` e geração de dependências automáticas de cabeçalhos (`.d`). |
-| **Interface Gráfica e Menus com Botões** | Máquina de estados completa em `src/game.c` com telas dedicadas para Menu Principal, Seleção de Save, Mapa de Fases, Escolha de Deck, Instruções, Partida Ativa, Tela de Pausa e Fim de Partida. Componentes de UI padronizados em `src/ui.c`. |
-| **Fases, Progressão e Chefão** | 5 fases jogáveis com curva de aprendizado mais modo Tutorial interativo; a 5ª fase traz mecânicas únicas de Chefão com movimentação própria, invocações e cartas providas via esteira mecânica. |
-| **Controle de Versão (Git)** | Histórico de desenvolvimento versionado com commits incrementais e branches temáticas. |
+| **Structs (Registros)** | Utilizadas para organizar os dados do jogo: `Jogo` (`include/game.h`), `Partida`, `Carta`, `Efeito` e `Esteira` (`include/partida.h`), `Mapa` (`include/map.h`), `Cachorro` e `InfoCachorro` (`include/tower.h`), `Gato` e `InfoGato` (`include/enemy.h`), `Projetil` (`include/projetil.h`), `Petisco` (`include/petisco.h`), `Horda` (`include/horda.h`), `Save` (`include/save.h`), `Audio` (`include/audio.h`) e `Botao` (`include/ui.h`). |
+| **Ponteiros** | A grade do campo de batalha utiliza uma matriz bidimensional de ponteiros: `Cachorro *grade[LINHAS_MAPA][COLUNAS_MAPA]`, definida em `include/map.h`. Os módulos `enemy.c`, `projetil.c` e `petisco.c` também utilizam ponteiros duplos para manipular listas encadeadas. |
+| **Alocação Dinâmica (`malloc` e `free`)** | Utilizada na criação e liberação de estruturas do jogo, incluindo `jogo_criar` / `jogo_destruir`, `partida_criar` / `partida_destruir`, `cachorro_criar` / `cachorro_destruir`, além dos nós das listas de gatos, projéteis e petiscos. O módulo `audio.c` também utiliza memória alocada dinamicamente para gerar amostras de áudio. |
+| **Listas Encadeadas** | Três sistemas utilizam listas simplesmente encadeadas com nós alocados dinamicamente: gatos em campo (`src/enemy.c`), projéteis disparados (`src/projetil.c`) e petiscos disponíveis para coleta (`src/petisco.c`). |
+| **Matrizes** | O mapa utiliza uma matriz 4x8 de ponteiros (`Mapa.grade` em `include/map.h`). A composição das hordas utiliza uma matriz tridimensional `composicao[TOTAL_FASES][HORDAS_POR_FASE][TOTAL_TIPOS_GATO]` em `src/horda.c`. O módulo `src/audio.c` contém uma matriz de acordes musicais, enquanto `src/petisco.c` utiliza arranjos de strings para representar figuras em pixel-art. |
+| **Escrita e Leitura em Arquivos (`FILE*`)** | O progresso é armazenado em `assets/data/saves.txt`, utilizando funções da biblioteca padrão de C como `fopen`, `fgets`, `sscanf`, `fprintf` e `fclose`, implementadas no módulo `src/save.c`. |
 
----
+### Recursos adicionais e outros aspectos técnicos
+
+| Recurso | Implementação e Localização no Código |
+|---|---|
+| **Ponteiros de Função** | A tabela `habilidades[TOTAL_TIPOS_CACHORRO]`, em `src/habilidade.c`, associa cada tipo de cachorro à função responsável pela sua habilidade. |
+| **Compilação Automatizada com Makefile** | O `Makefile` possui configurações para Windows, Linux e macOS, com os comandos `make`, `make run` e `make clean`. Também organiza os arquivos compilados em `build/` e gera dependências automáticas de cabeçalhos (`.d`). A compilação e execução foram testadas em Windows e Linux. |
+| **Interface Gráfica e Menus** | Máquina de estados em `src/game.c`, responsável pelo Menu Principal, Seleção de Save, Mapa de Fases, Escolha de Deck, Instruções, Partida, Pausa e Tela de Resultado. Os componentes de interface são implementados em `src/ui.c`. |
+| **Movimentação, Animações e Colisões** | Os módulos `src/enemy.c`, `src/projetil.c`, `src/petisco.c` e `src/partida.c` controlam movimentação, atualizações e interações entre elementos. Os sprites animados são gerenciados em `src/sprite.c`. |
+| **Fases, Progressão e Chefão** | O jogo possui cinco fases e um tutorial interativo. A quinta fase apresenta um chefão com movimentação entre linhas, invocação de inimigos, ataques especiais e uma esteira para disponibilizar cachorros durante a batalha. |
+| **Controle de Versão (Git)** | O desenvolvimento está registrado no GitHub, com histórico de commits incrementais e branches utilizadas nas diferentes etapas do projeto. |
+
 
 ## 5. Mapa do código
 
@@ -153,7 +161,7 @@ main.c
             ├─ habilidade.c ─── Lógica tática de cada raça via tabela de ponteiros de função
             ├─ enemy.c ──────── Lista encadeada de Gatos Zumbis: avanço, mordida, saltos e dano
             ├─ projetil.c ───── Lista encadeada de projéteis (babas, gelo e jatos)
-            ├─ petisco.c ────── Lista encadeada de petiscos: queda parabólica, produção e coleta
+            ├─ petisco.c ────── Lista encadeada de petiscos: queda vertical, produção e coleta
             └─ horda.c ──────── Temporizador e controle de ondas/hordas de inimigos por fase
 
 Módulos utilitários compartilhados:
