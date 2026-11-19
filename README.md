@@ -38,6 +38,19 @@ make          # Compila todos os arquivos-fonte em build/ e gera o executável (
 make run      # Compila (caso haja alterações) e executa o jogo imediatamente
 make clean    # Remove a pasta build/ e o binário gerado, limpando a compilação anterior
 ```
+### Comandos de compilação para linux
+Para instalar as dependências, compilar a raylib 6.0 e executar o PawPocalypse, utilize o comando abaixo no terminal Linux.
+
+**Instalação em uma única linha:**
+
+```bash
+sudo apt update && sudo apt install -y git build-essential cmake pkg-config libasound2-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev && git clone --depth 1 --branch 6.0 https://github.com/raysan5/raylib.git raylib6 && cmake -S raylib6 -B raylib6/build -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=OFF -DBUILD_GAMES=OFF && cmake --build raylib6/build -j 4 && sudo cmake --install raylib6/build && sudo ldconfig && git clone https://github.com/arthurmarenga/PawPocalypse.git && cd PawPocalypse && make run
+```
+caso tenha a raylib 6.0 e as ferramentas de compilação execute 
+
+```bash
+git clone https://github.com/arthurmarenga/PawPocalypse.git && cd PawPocalypse && make run
+```
 
 > **Resolução e Escala:** O jogo renderiza toda a cena em uma tela virtual interna em pixel-art de **640x360**, que é redimensionada em escala inteira (com bordas pretas de compensação e textura com filtro sem suavização) para a janela de **1280x720**. A tecla **F11** alterna para o modo janela sem bordas / tela cheia.
 
