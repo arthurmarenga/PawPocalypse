@@ -357,7 +357,7 @@ static void desenhar_fases(const Jogo *jogo)
 
     ui_texto_centro(TextFormat("Pontos: %d    Tempo de jogo: %s", s->pontuacao, texto_tempo(s->tempoJogado)),
                     LARGURA_VIRTUAL / 2, 256, FONTE_PEQUENA, COR_TEXTO);
-    ui_texto_centro("(Teste: F9 vence a fase, TAB troca o deck, ] dá +100 petiscos)", LARGURA_VIRTUAL / 2, 276, FONTE_PEQUENA, COR_BLOQUEADO);
+    ui_texto_centro("(Teste: F9 vence a fase)", LARGURA_VIRTUAL / 2, 276, FONTE_PEQUENA, COR_BLOQUEADO);
     ui_desenhar_botao(&botaoVoltar, jogo->mouse);
 }
 

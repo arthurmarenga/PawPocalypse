@@ -13,7 +13,7 @@
 #define INTERVALO_CEU    8.0f   // segundos mínimos entre petiscos do céu
 #define DURACAO_AVISO    1.6f
 #define DURACAO_EFEITO   0.35f
-#define PETISCOS_TESTE   100    // ganhos com a tecla ']' (atalho de teste)
+
 
 static const Rectangle RET_CONTADOR = { 8, 8, 56, 52 };
 static const Rectangle RET_PA = { 380, 8, 46, 52 };
@@ -461,19 +461,7 @@ static void colocar_cachorro_esteira(Partida *partida, int linha, int coluna){
     partida->esteira.quantidade--;
     partida->esteira.selecionada = -1;
 }
-/* tratar_atalhos_teste: atalhos PROVISÓRIOS para testar as raças: ']' dá
- * PETISCOS_TESTE petiscos (lido pelo caractere digitado, então funciona em
- * qualquer teclado) e, fora do tutorial, TAB troca o deck de teste. */
-static void tratar_atalhos_teste(Partida *partida)
-{
-    for (int tecla = GetCharPressed(); tecla != 0; tecla = GetCharPressed()) {
-        if (tecla == ']') partida->saldo += PETISCOS_TESTE;
-    }
-    if (IsKeyPressed(KEY_TAB) && !partida_eh_tutorial(partida)) {
-        partida->deckTeste = 1 - partida->deckTeste;
-        montar_deck(partida, decksTeste[partida->deckTeste], MAX_CARTAS);
-    }
-}
+
 
 /* tratar_entrada: lê os atalhos de teste, o teclado (1 a 6 escolhem cartas,
  * S pega a pá, botão direito cancela) e o clique esquerdo, nesta ordem de
@@ -481,7 +469,7 @@ static void tratar_atalhos_teste(Partida *partida)
  * no campo (colocar o cachorro selecionado ou remover com a pá). */
 static void tratar_entrada(Partida *partida, Vector2 mouse)
 {
-    tratar_atalhos_teste(partida);
+    
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
         partida->cartaSelecionada = -1;
         partida->paSelecionada = false;
