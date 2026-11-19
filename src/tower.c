@@ -1,4 +1,4 @@
-/* tower.c - Tabela das raças e o desenho (sprite do pote e formas provisórias). */
+/* tower.c - Tabela das raças e renderização dos cachorros com sprites ou formas */
 
 #include "tower.h"
 #include "sprite.h"
@@ -63,7 +63,7 @@ int cachorro_quadro(const Cachorro *cachorro)
     return 0;
 }
 
-/* Dachshund provisório: corpo comprido preto com patas e cabeça marrons. */
+/* Desenho alternativo do salsicha caso o sprite nao esteja disponivel. */
 static void desenhar_dachshund(Vector2 c, float r, Color tinta)
 {
     Color preto = ColorTint(infos[TIPO_DACHSHUND].cor, tinta);

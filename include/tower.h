@@ -1,8 +1,8 @@
 #ifndef TOWER_H
 #define TOWER_H
 
-/* tower.h - Os defensores: as raças de cachorro e o Pote de Ração.
- * Até os sprites ficarem prontos, cada raça é uma forma geométrica. */
+/* tower.h - raças de cachorro e o Pote de Ração.
+ * Utiliza sprites animados ou formas geometricas como alternativa. */
 
 #include "raylib.h"
 #include "sprite.h"
@@ -10,7 +10,7 @@
 #define RAIO_CACHORRO  22   // tamanho do cachorro desenhado no campo
 
 typedef enum TipoCachorro {
-    TIPO_POTE_RACAO,   // gerador de petiscos: não é cachorro e não conta como carta
+    TIPO_POTE_RACAO,   // gerador de petiscos é fixo no deck
     TIPO_BEAGLE,
     TIPO_BULLDOG,
     TIPO_DALMATA,
