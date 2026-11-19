@@ -386,10 +386,8 @@ static void desenhar_instrucoes(const Jogo *jogo)
     ui_desenhar_botao(&botaoVoltar, jogo->mouse);
 }
 
-/* atualizar_jogando: ESC/P pausa; F9 vence a fase na hora (atalho de teste
- * até as hordas existirem); senão atualiza a partida, com o tempo do frame
- * limitado a 0,1 s para evitar "saltos" se o jogo travar um instante. Se um
- * gato invadiu a casa, vai para a tela de fim de partida. */
+/* atualizar_jogando: ESC/P pausa; F9 vence a fase na hora (atalho de teste)
+* atualiza a partida e verifica se houve vitoria ou derrota */
 static void atualizar_jogando(Jogo *jogo)
 {
     if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) {
@@ -402,8 +400,8 @@ static void atualizar_jogando(Jogo *jogo)
     }
 }
 
-/* atualizar_fim_partida: "Tentar de novo" encerra a partida (guardando o
- * tempo no save) e começa outra da mesma fase; "Sair da Partida" só encerra. */
+/* atualizar_fim_partida: "Tentar de novo" retorna a seleção de deck
+* "Sair da Partida" só encerra. */
 static void atualizar_fim_partida(Jogo *jogo)
 {
     int fase = jogo->partida->fase;
@@ -435,8 +433,8 @@ static void atualizar_fim_partida(Jogo *jogo)
 }
 
 /* desenhar_fim_partida: a partida congelada e escurecida ao fundo, desenhada
- * com o mouse "fora da tela" para nada no fundo reagir a ele, com a mensagem
- * de derrota, o tempo, os gatos derrotados e os botões por cima. */
+ * para que o mouse "fora da tela" o fundo não reaja a ele
+ * mostrando pontos, tempo, gatos derrotados e botoes de navegacao */
 static void desenhar_fim_partida(const Jogo *jogo){
 
     const Partida *p = jogo->partida;
