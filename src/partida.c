@@ -19,7 +19,7 @@ static const Rectangle RET_CONTADOR = { 8, 8, 56, 52 };
 static const Rectangle RET_PA = { 380, 8, 46, 52 };
 
 static const TipoCachorro deckTutorial[] = { TIPO_POTE_RACAO, TIPO_BEAGLE, TIPO_BULLDOG };
-static const TipoCachorro decksTeste[2][MAX_CARTAS] = {   // provisórios, até a escolha de deck (Etapa 6)
+static const TipoCachorro decksTeste[2][MAX_CARTAS] = {   // deck padrão usado no inicio da partida 
     { TIPO_POTE_RACAO, TIPO_BEAGLE, TIPO_BULLDOG, TIPO_DALMATA, TIPO_HUSKY, TIPO_WESTIE },
     { TIPO_POTE_RACAO, TIPO_PASTOR_ALEMAO, TIPO_SAO_BERNARDO, TIPO_DACHSHUND, TIPO_ROTTWEILER, TIPO_SHIBA_INU },
 };
@@ -268,9 +268,9 @@ static bool chefe_derrotado(const Partida *partida){
     }
     return false;
 }
-/* partida_criar: aloca a partida com malloc, zera tudo e prepara o campo
+/* partida_criar: aloca a partida, zera tudo e prepara o campo
  * vazio, as listas de petiscos, gatos e bolinhas vazias, o saldo inicial e
- * o deck (fixo por enquanto: o do tutorial ou o 1º deck de teste).
+ * o deck do jogador é montado apos a criação da partida.
  * Retorna NULL se faltar memória. */
 Partida *partida_criar(int fase)
 {
@@ -463,10 +463,8 @@ static void colocar_cachorro_esteira(Partida *partida, int linha, int coluna){
 }
 
 
-/* tratar_entrada: lê os atalhos de teste, o teclado (1 a 6 escolhem cartas,
- * S pega a pá, botão direito cancela) e o clique esquerdo, nesta ordem de
- * prioridade: coletar petisco, escolher carta, pegar a pá e, por fim, agir
- * no campo (colocar o cachorro selecionado ou remover com a pá). */
+/* tratar_entrada: lê os atalhos do teclado (1 a 6 escolhem cartas,
+ * S pega a pá, botão direito cancela) e o clique esquerdo */
 static void tratar_entrada(Partida *partida, Vector2 mouse)
 {
     
