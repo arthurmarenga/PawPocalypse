@@ -1,4 +1,4 @@
-/* projetil.c - Lista encadeada das bolinhas de tênis em voo. */
+/* projetil.c - Lista encadeada dos projeteis em movimento. */
 
 #include "projetil.h"
 #include "config.h"

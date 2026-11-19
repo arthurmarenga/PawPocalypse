@@ -1,9 +1,8 @@
 #ifndef PROJETIL_H
 #define PROJETIL_H
 
-/* projetil.h - Bolinhas de tênis atiradas pelos cachorros. Ficam numa LISTA
- * ENCADEADA: cada uma é criada com malloc no disparo e liberada com free
- * quando acerta um gato ou sai da tela. */
+/* projetil.h - projetil disparado pelos cachorros. Ficam numa lista
+ * encadeada cada uma e liberada quando acerta um gato ou sai da tela. */
 
 #include "raylib.h"
 #include "enemy.h"
