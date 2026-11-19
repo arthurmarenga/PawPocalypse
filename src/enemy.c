@@ -12,7 +12,7 @@
 #define VELOCIDADE_DA_ARTE  3.2f    // px/s que a animação "anda" (ver LEIAME dos sprites)
 
 static const InfoGato infos[TOTAL_TIPOS_GATO] = {
-    /*                     nome              vida  velocidade mordida  imuneGelo  pula  escala  sprite              tinta */
+    /*                     nome              vida, velocidade, mordida,  imuneGelo,  pula,  escala,  sprite,            Cor,                pontos */
     [GATO_PADRAO]     = { "Gato Zumbi",       200,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_PADRAO, { 255, 255, 255, 255 }, 10 },
     [GATO_CAIXA]      = { "Gato da Caixa",    560,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_CAIXA,  { 255, 255, 255, 255 }, 15 },
     [GATO_LATA]       = { "Gato da Lata",    1300,   8.0f,     100,    false,     false, 1.00f, SPRITE_GATO_LATA,   { 255, 255, 255, 255 }, 30 },
@@ -39,7 +39,8 @@ const InfoGato *gato_info(TipoGato tipo)
     return &infos[tipo];
 }
 
-/* Aloca o gato com vida cheia logo após a borda direita da tela. */
+/* Aloca o gato com vida cheia logo após a borda direita da tela. 
+O chefe inicia dentro do campo */
 bool gato_adicionar(Gato **lista, TipoGato tipo, int linha)
 {
     Gato *novo = malloc(sizeof(Gato));
@@ -102,7 +103,7 @@ static void mover_ou_morder(Gato *gato, Mapa *mapa, float dt)
     if (alvo->vida <= 0) mapa_remover(mapa, alvo->linha, alvo->coluna);
 }
 
-/* Remove os mortos (somando-os em *derrotados), conta timers e move/morde.
+/* atualiza os gatos em campo, remove os mortos e conta os pontos.
  * Retorna true se algum invadiu a casa. */
 bool gato_atualizar_lista(Gato **lista, Mapa *mapa, float dt, int *derrotados, int *pontosGatos)
 {
@@ -184,7 +185,7 @@ static Color tinta_do_gato(const Gato *gato)
     return infos[gato->tipo].tinta;
 }
 
-/* Desenho provisório (sem PNG): rabo, corpo, orelhas, olhos e acessório. */
+/* Desenho alternativo, caso o PNG não esteja disponivel. */
 static void desenhar_gato_formas(const Gato *gato, Vector2 pes, Color tinta)
 {
     Color pelo = ColorTint((Color){ 118, 146, 98, 255 }, tinta);

@@ -1,9 +1,7 @@
 #ifndef ENEMY_H
 #define ENEMY_H
 
-/* enemy.h - Os gatos zumbis. Os gatos em campo ficam numa LISTA ENCADEADA:
- * cada um é criado com malloc quando entra pela rua e liberado com free
- * quando morre. */
+/* Gerenciamento dos gatos ativos em campo por lista encadeada. */
 
 #include "raylib.h"
 #include "map.h"
@@ -27,7 +25,7 @@ typedef enum TipoGato {
     TOTAL_TIPOS_GATO
 } TipoGato;
 
-typedef struct InfoGato {   // dados fixos de cada tipo de gato (provisórios)
+typedef struct InfoGato {   // dados fixos de cada tipo de gato 
     const char *nome;
     int      vidaMaxima;
     float    velocidade;    // pixels por segundo
@@ -36,8 +34,8 @@ typedef struct InfoGato {   // dados fixos de cada tipo de gato (provisórios)
     bool     pula;          // pula o primeiro cachorro que encontrar
     float    escala;        // tamanho do desenho (1 = 64x64)
     IdSprite sprite;        // animação de andar (com o acessório, se tiver)
-    Color    tinta;
-    int pontos;         // cor multiplicada no sprite (as variações do gato padrão)
+    Color    tinta; // cor multiplicada no sprite (as variações do gato padrão)
+    int pontos;         // pontos do gato ao mata-lo
 } InfoGato;
 
 typedef struct Gato {
